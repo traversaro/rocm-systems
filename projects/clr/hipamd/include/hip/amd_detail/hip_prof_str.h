@@ -461,7 +461,8 @@ enum hip_api_id_t {
   HIP_API_ID_hipLibraryUnload = 441,
   HIP_API_ID_hipLibraryGetKernel = 442,
   HIP_API_ID_hipLibraryGetKernelCount = 443,
-  HIP_API_ID_LAST = 443,
+  HIP_API_ID_hipModuleGetLoadingMode = 444,
+  HIP_API_ID_LAST = 444,
 
   HIP_API_ID_hipChooseDevice = HIP_API_ID_CONCAT(HIP_API_ID_,hipChooseDevice),
   HIP_API_ID_hipGetDeviceProperties = HIP_API_ID_CONCAT(HIP_API_ID_,hipGetDeviceProperties),
@@ -932,6 +933,7 @@ static inline const char* hip_api_name(const uint32_t id) {
     case HIP_API_ID_hipLibraryUnload: return "hipLibraryUnload";
     case HIP_API_ID_hipLibraryGetKernel: return "hipLibraryGetKernel";
     case HIP_API_ID_hipLibraryGetKernelCount: return "hipLibraryGetKernelCount";
+    case HIP_API_ID_hipModuleGetLoadingMode: return "hipModuleGetLoadingMode";
   };
   return "unknown";
 };
@@ -1370,6 +1372,7 @@ static inline uint32_t hipApiIdByName(const char* name) {
   if (strcmp("hipLibraryUnload", name) == 0) return HIP_API_ID_hipLibraryUnload;
   if (strcmp("hipLibraryGetKernel", name) == 0) return HIP_API_ID_hipLibraryGetKernel;
   if (strcmp("hipLibraryGetKernelCount", name) == 0) return HIP_API_ID_hipLibraryGetKernelCount;
+  if (strcmp("hipModuleGetLoadingMode", name) == 0) return HIP_API_ID_hipModuleGetLoadingMode;
   return HIP_API_ID_NONE;
 }
 
@@ -3466,6 +3469,10 @@ typedef struct hip_api_data_s {
       unsigned int count__val;
       hipModule_t mod;
     } hipModuleGetFunctionCount;
+    struct {
+      hipModuleLoadingMode_t* mode;
+      hipModuleLoadingMode_t mode__val;
+    } hipModuleGetLoadingMode;
     struct {
       hipDeviceptr_t* dptr;
       hipDeviceptr_t dptr__val;
@@ -6163,6 +6170,10 @@ typedef struct hip_api_data_s {
   cb_data.args.hipModuleLaunchKernel.kernelParams = (void**)kernelParams; \
   cb_data.args.hipModuleLaunchKernel.extra = (void**)extra; \
 };
+// hipModuleGetLoadingMode[('hipModuleLoadingMode_t*', 'mode')]
+#define INIT_hipModuleGetLoadingMode_CB_ARGS_DATA(cb_data) { \
+    cb_data.args.hipModuleGetLoadingMode.mode = (hipModuleLoadingMode_t*)mode; \
+};
 // hipModuleLoadFatBinary[('hipModule_t*', 'module'), ('const void*', 'fatbin')]
 #define INIT_hipModuleLoadFatBinary_CB_ARGS_DATA(cb_data) { \
   cb_data.args.hipModuleLoadFatBinary.module = (hipModule_t*)module; \
@@ -8047,6 +8058,10 @@ static inline void hipApiArgsInit(hip_api_id_t id, hip_api_data_t* data) {
       if (data->args.hipModuleGetFunction.function) data->args.hipModuleGetFunction.function__val = *(data->args.hipModuleGetFunction.function);
       if (data->args.hipModuleGetFunction.kname) data->args.hipModuleGetFunction.kname__val = *(data->args.hipModuleGetFunction.kname);
       break;
+// hipModuleGetLoadingMode[('hipFunction_t*', 'function')]
+    case HIP_API_ID_hipModuleGetLoadingMode:
+      if (data->args.hipModuleGetLoadingMode.mode) data->args.hipModuleGetLoadingMode.mode__val = *(data->args.hipModuleGetLoadingMode.mode);
+      break;      
 // hipModuleGetGlobal[('hipDeviceptr_t*', 'dptr'), ('size_t*', 'bytes'), ('hipModule_t', 'hmod'), ('const char*', 'name')]
     case HIP_API_ID_hipModuleGetGlobal:
       if (data->args.hipModuleGetGlobal.dptr) data->args.hipModuleGetGlobal.dptr__val = *(data->args.hipModuleGetGlobal.dptr);
@@ -11194,6 +11209,13 @@ static inline const char* hipApiString(hip_api_id_t id, const hip_api_data_t* da
       if (data->args.hipModuleGetFunction.kname == NULL) oss << ", kname=NULL";
       else { oss << ", kname="; roctracer::hip_support::detail::operator<<(oss, data->args.hipModuleGetFunction.kname__val); }
       oss << ")";
+    break;
+    case HIP_API_ID_hipModuleGetLoadingMode:
+      oss << "hipModuleGetLoadingMode(";
+      if (data->args.hipModuleGetLoadingMode.mode == NULL) 
+        oss << "mode=NULL";
+      else { oss << "mode="; roctracer::hip_support::detail::operator<<(oss, data->args.hipModuleGetLoadingMode.mode__val); }
+        oss << ")";
     break;
     case HIP_API_ID_hipModuleGetGlobal:
       oss << "hipModuleGetGlobal(";
