@@ -26,11 +26,11 @@
 from .importer import RocpdImportData
 from .time_window import apply_time_window
 from . import output_config
-from . import libpyrocpd
+from .otf2_writer import write_otf2 as py_write_otf2
 
 
 def write_otf2(importData, config):
-    return libpyrocpd.write_otf2(importData, config)
+    return py_write_otf2(importData, config)
 
 
 def execute(input, config=None, window_args=None, **kwargs):
