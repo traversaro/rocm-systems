@@ -645,6 +645,39 @@ public:
   /// Device representing the host - for pinned memory
   extern amd::Context* host_context;
 
+struct KernelAttributes {
+  static KernelAttributes& instance() {
+      static KernelAttributes inst;
+      return inst;
+  }
+  public:
+  void SetMaxDynamicSharedMemSizeKernel(uint64_t MaxSharedDynamicSize) {
+    KernelAttrimaxDynamicSharedMemSize_ = MaxSharedDynamicSize;
+  }
+  void SetMaxDynamicSharedMemSizeFunc(uint64_t MaxSharedDynamicSize) {
+    FuncAttrimaxDynamicSharedMemSize_ = MaxSharedDynamicSize;
+  }
+  uint64_t GetMaxDynamicSharedMemSize() const {
+    if(isFunc.load()) {
+      return FuncAttrimaxDynamicSharedMemSize_;
+    } else {
+      return KernelAttrimaxDynamicSharedMemSize_;
+    }
+  };
+  uint64_t GetMaxDynamicSharedMemSizeKernel() const {
+    return KernelAttrimaxDynamicSharedMemSize_;
+  };
+  void SetIsFunc(bool isFunc) {
+    this->isFunc = isFunc;
+  }
+  private:
+  inline static std::atomic_bool isFunc{false};
+  uint64_t KernelAttrimaxDynamicSharedMemSize_;
+  uint64_t FuncAttrimaxDynamicSharedMemSize_;
+};
+/// Device representing the host - for pinned memory
+extern amd::Context* host_context;
+
   extern void init(bool* status);
 
   extern Device* getCurrentDevice();

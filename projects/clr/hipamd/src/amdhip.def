@@ -61,6 +61,7 @@ hipExtLaunchKernel
 hipFree
 hipFreeArray
 hipFuncSetAttribute
+hipKernelSetAttribute
 hipFuncSetCacheConfig
 hipFuncSetSharedMemConfig
 hipGetDevice
@@ -516,3 +517,4 @@ hipLibraryLoadFromFile
 hipLibraryUnload
 hipLibraryGetKernel
 hipLibraryGetKernelCount
+hipKernelGetFunction

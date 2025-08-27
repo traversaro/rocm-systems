@@ -130,9 +130,9 @@ hipError_t hipFuncGetAttribute(int* value, hipFunction_attribute attrib, hipFunc
     HIP_RETURN(hipErrorInvalidValue);
   }
 
-  hip::DeviceFunc* function = hip::DeviceFunc::asFunction(hfunc);
+  const hip::DeviceFunc* function = hip::DeviceFunc::asFunction(hfunc);
   if (function == nullptr) {
-    HIP_RETURN(hipErrorInvalidHandle);
+    HIP_RETURN(hipErrorInvalidDeviceFunction);
   }
 
   amd::Kernel* kernel = function->kernel();
@@ -228,7 +228,10 @@ hipError_t hipFuncSetAttribute(const void* func, hipFuncAttribute attr, int valu
                                  d_kernel->workGroupInfo()->localMemSize_))) {
       HIP_RETURN(hipErrorInvalidValue);
     }
-    d_kernel->workGroupInfo()->maxDynamicSharedSizeBytes_ = value;
+    KernelAttributes::instance().SetMaxDynamicSharedMemSizeFunc(value);
+    KernelAttributes::instance().SetIsFunc(true);
+    d_kernel->workGroupInfo()->maxDynamicSharedSizeBytes_ = 
+                                  KernelAttributes::instance().GetMaxDynamicSharedMemSize();
   }
 
   if (attr == hipFuncAttributePreferredSharedMemoryCarveout) {
