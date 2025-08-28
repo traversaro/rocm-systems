@@ -917,7 +917,7 @@ class Runtime {
   int  IPCClientImport(uint32_t conn_handle, uint64_t dmabuf_fd_handle,
                        amdgpu_bo_import_result *res,
                        unsigned int numNodes, HSAuint32 *nodes,
-                       void **importAddress, HSAuint64 *importSize);
+                       void **importAddress, HSAuint64 *importSize, bool isdmabufSysmem);
 };
 
 }  // namespace core

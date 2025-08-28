@@ -365,6 +365,18 @@ hsa_status_t Runtime::FreeMemory(void* ptr) {
 
     notifiers = std::move(it->second.notifiers);
 
+    //track the exporter BO to clear meta data via set_metadata
+    //clear the set metadata here if possible if theres an existing ldrm_bo
+    if(it->second.ldrm_bo) {
+      struct amdgpu_bo_info info = {0};
+      auto err = amdgpu_bo_query_info(it->second.ldrm_bo, &info);
+
+      //clear metadata
+      amdgpu_bo_metadata zero_metadata = {0};
+      memset(zero_metadata.umd_metadata, 0, sizeof(uint32_t));
+      amdgpu_bo_set_metadata(it->second.ldrm_bo, &zero_metadata);
+    }
+
     allocation_map_.erase(it);
   }
 
@@ -1370,6 +1382,9 @@ hsa_status_t Runtime::IPCCreate(void* ptr, size_t len, hsa_amd_ipc_memory_t* han
   handle->handle[4] = agent->node_id();
   if (useFrag) handle->handle[6] |= 0x80000000 | fragOffset;
 
+  srand(static_cast<uint32_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count()));
+  handle->handle[7] = rand();
+
   // Work around to defer export on import call to minimize FD creation.
   // Without this, a deferred export may fail due to the kernel mode driver not
   // holding the GEM object reference.
@@ -1380,6 +1395,38 @@ hsa_status_t Runtime::IPCCreate(void* ptr, size_t len, hsa_amd_ipc_memory_t* han
   hsa_status_t err = agent->driver().ExportDMABuf(ptr, len, &dmabuf_fd, &dmabufOffset);
   assert(dmabufOffset/pageSize == fragOffset && "DMA Buf inconsistent with pointer offset.");
   if (err != HSA_STATUS_SUCCESS) return err;
+
+  if(agent->device_type() == Agent::kAmdGpuDevice) {
+    AMD::GpuAgent* agent_ = reinterpret_cast<AMD::GpuAgent*>(agent);    
+    amdgpu_bo_import_result res;
+
+    //libdrm import for buffer object handle
+    auto err = DRM_CALL(amdgpu_bo_import(agent_->libDrmDev(), amdgpu_bo_handle_type_dma_buf_fd,
+                          dmabuf_fd, &res));
+
+    if(err) {
+      fprintf(stderr, "Error in amdgpu_bo_import\n");
+      return HSA_STATUS_ERROR_INVALID_ARGUMENT;
+    }
+
+    //query buffer object for pre existing metadata
+    struct amdgpu_bo_info info = {0};
+    if (!amdgpu_bo_query_info(res.buf_handle, &info) && !!info.metadata.size_metadata) {
+      handle->handle[7] = info.metadata.umd_metadata[0];
+    } else {
+      amdgpu_bo_metadata buf_info = {0};
+      buf_info.size_metadata = sizeof(uint32_t);
+      buf_info.umd_metadata[0] = handle->handle[7];
+
+      amdgpu_bo_set_metadata(res.buf_handle, &buf_info);
+      allocation_map_[ptr].ldrm_bo = res.buf_handle;
+    }
+  } else if(agent->device_type() == Agent::kAmdCpuDevice) {
+      // CPU agent does not have metadata support, set to 0
+      // Clear for signal handles
+      handle->handle[7] = 0U;
+    }
+
   close(dmabuf_fd);
 
   ScopedAcquire<KernelMutex> lock(&ipc_sock_server_lock_);
@@ -1428,7 +1475,7 @@ hsa_status_t Runtime::IPCCreate(void* ptr, size_t len, hsa_amd_ipc_memory_t* han
 int Runtime::IPCClientImport(uint32_t conn_handle, uint64_t dmabuf_fd_handle,
                              amdgpu_bo_import_result *res,
                              unsigned int numNodes, HSAuint32 *nodes,
-                             void **importAddress, HSAuint64 *importSize) {
+                             void **importAddress, HSAuint64 *importSize, bool isDmabufSysmem) {
     int dmabuf_fd = -1, socket_fd = socket(AF_UNIX, SOCK_STREAM, 0);
     assert(socket_fd > -1 && "DMA buffer could not be imported for IPC!");
     if (socket_fd == -1) return -1;
@@ -1482,10 +1529,16 @@ int Runtime::IPCClientImport(uint32_t conn_handle, uint64_t dmabuf_fd_handle,
     if (err == HSAKMT_STATUS_SUCCESS) {
       *importAddress = info.MemoryAddress;
       *importSize = info.SizeInBytes;
-      if (res) {
+      if (isDmabufSysmem && res) {
         HSAKMT_CALL(hsaKmtDeregisterMemory(*importAddress));
 
         // Manually libDRM import and GPU map system memory
+        AMD::GpuAgent* agent = reinterpret_cast<AMD::GpuAgent*>(agents_by_node_[info.NodeId][0]);
+        err = DRM_CALL(amdgpu_bo_import(agent->libDrmDev(), amdgpu_bo_handle_type_dma_buf_fd,
+                               dmabuf_fd, res));
+      } else if(!isDmabufSysmem && res) {
+
+        //to avoid deregistering GPU memory, just import via libdrm
         AMD::GpuAgent* agent = reinterpret_cast<AMD::GpuAgent*>(agents_by_node_[info.NodeId][0]);
         err = DRM_CALL(amdgpu_bo_import(agent->libDrmDev(), amdgpu_bo_handle_type_dma_buf_fd,
                                dmabuf_fd, res));
@@ -1521,17 +1574,47 @@ hsa_status_t Runtime::IPCAttach(const hsa_amd_ipc_memory_t* handle, size_t len, 
     allocation_map_[importAddress].ldrm_bo = ldrm_bo;
   };
 
-  auto importMemory = [&](unsigned int numNodes, HSAuint32 *nodes,
-                          amdgpu_bo_import_result *res) {
-    int ret = ipc_dmabuf_supported_ ?
-          IPCClientImport(importHandle.handle[2], dmaBufFDHandle, res,
-                          numNodes, nodes, &importAddress, &importSize) :
-          HSAKMT_CALL(hsaKmtRegisterSharedHandle(reinterpret_cast<const HsaSharedMemoryHandle*>(&importHandle),
-                                     &importAddress, &importSize));
-    if (ret != HSAKMT_STATUS_SUCCESS) return HSA_STATUS_ERROR_INVALID_ARGUMENT;
+  auto checkMetadata = [&](amdgpu_bo_import_result *res) {
+    if (!res->buf_handle) return HSA_STATUS_ERROR_INVALID_ARGUMENT;
 
+    struct amdgpu_bo_info info = {0};
+    int ret = amdgpu_bo_query_info(res->buf_handle, &info);
+
+    // Validate metadata for IPC handle
+    if (ret || info.metadata.umd_metadata[0] != importHandle.handle[7]) {
+        fprintf(stderr, "IPC Attach: Invalid IPC handle! %u and %u\n", importHandle.handle[7], info.metadata.umd_metadata[0]);
+        return HSA_STATUS_ERROR_INVALID_ARGUMENT;
+    }
+    
     return HSA_STATUS_SUCCESS;
   };
+
+  auto importMemory = [&](unsigned int numNodes, HSAuint32 *nodes,
+                          amdgpu_bo_import_result *res) {
+
+    bool isDmabufSysMem = importHandle.handle[3];
+
+    if (ipc_dmabuf_supported_) {
+      //this call should not deregister GPU memory
+      int ret = IPCClientImport(importHandle.handle[2], dmaBufFDHandle, res,
+                                numNodes, nodes, &importAddress, &importSize, isDmabufSysMem);
+      if (ret != HSAKMT_STATUS_SUCCESS) return HSA_STATUS_ERROR_INVALID_ARGUMENT;
+
+      // Only check metadata for GPU memory
+      if (res && !isDmabufSysMem) {
+        hsa_status_t err = checkMetadata(res);
+        if (err != HSA_STATUS_SUCCESS) return err;
+      }
+    } else {
+      int ret = HSAKMT_CALL(hsaKmtRegisterSharedHandle(
+        reinterpret_cast<const HsaSharedMemoryHandle*>(&importHandle),
+        &importAddress,
+        &importSize
+      ));
+    if (ret != HSAKMT_STATUS_SUCCESS) return HSA_STATUS_ERROR_INVALID_ARGUMENT;
+    }
+      return HSA_STATUS_SUCCESS;
+    };
 
   auto mapMemoryToNodes = [&](unsigned int numNodes, HSAuint32 *nodes) {
     HSAuint64 altAddress;
@@ -1620,7 +1703,15 @@ hsa_status_t Runtime::IPCAttach(const hsa_amd_ipc_memory_t* handle, size_t len, 
   for (uint32_t i = 0; i < num_agents; i++)
     agents[i]->GetInfo((hsa_agent_info_t)HSA_AMD_AGENT_INFO_DRIVER_NODE_ID, &nodes[i]);
 
-  hsa_status_t err = importMemory(num_agents, nodes, NULL);
+  // if this is GPU memory "res" non-NULL else NULL for system mem or non-dmabuf ipc
+  hsa_status_t err;
+  if(ipc_dmabuf_supported_ && !importHandle.handle[3]) {
+    amdgpu_bo_import_result res = {0};
+    err = importMemory(num_agents, nodes, &res);
+  } else {
+    err = importMemory(num_agents, nodes, NULL);
+  }
+
   if (err != HSA_STATUS_SUCCESS) return err;
   return mapMemoryToNodes(num_agents, nodes);
 }
@@ -2217,7 +2308,7 @@ void Runtime::Unload() {
   // Close IPC socket server
   if (ipc_sock_server_conns_.size())
     IPCClientImport(getpid(), IPC_SOCK_SERVER_CONN_CLOSE_HANDLE,
-                    NULL, 0, NULL, NULL, NULL);
+                    NULL, 0, NULL, NULL, NULL, 0);
 
   svm_profile_.reset(nullptr);
 
