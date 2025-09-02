@@ -27,13 +27,11 @@
 # -------------------------------------------------------------------------------------- #
 
 set(_video_decode_environment
-    "${_base_environment}"
     "ROCPROFSYS_ROCM_DOMAINS=hip_runtime_api,kernel_dispatch,memory_copy,rocdecode_api"
     "ROCPROFSYS_AMD_SMI_METRICS=busy,temp,power,vcn_activity,mem_usage"
     "ROCPROFSYS_SAMPLING_CPUS=none"
 )
 set(_jpeg_decode_environment
-    "${_base_environment}"
     "ROCPROFSYS_ROCM_DOMAINS=hip_runtime_api,kernel_dispatch,memory_copy,rocjpeg_api"
     "ROCPROFSYS_AMD_SMI_METRICS=busy,temp,power,jpeg_activity,mem_usage"
     "ROCPROFSYS_SAMPLING_CPUS=none"
@@ -54,10 +52,24 @@ rocprofiler_systems_add_test(
     NAME video-decode
     TARGET videodecode
     GPU ON
-    ENVIRONMENT "${_video_decode_environment}"
+    ENVIRONMENT "${_base_environment};${_video_decode_environment}"
     RUN_ARGS -i ${PROJECT_BINARY_DIR}/videos -t 1
     LABELS "decode"
 )
+
+if(${ENABLE_ROCPD_TEST})
+    rocprofiler_systems_add_test(
+        SKIP_BASELINE SKIP_RUNTIME SKIP_REWRITE
+        NAME video-decode-rocpd
+        TARGET videodecode
+        GPU ON
+        ENVIRONMENT "${_rocpd_environment};${_video_decode_environment}"
+        RUN_ARGS -i ${PROJECT_BINARY_DIR}/videos -t 1
+        LABELS "decode;rocpd"
+        SAMPLING_PASS_REGEX "rocpd.db"
+        REWRITE_RUN_PASS_REGEX "rocpd.db"
+    )
+endif()
 
 rocprofiler_systems_add_validation_test(
     NAME video-decode-sampling
@@ -78,10 +90,24 @@ rocprofiler_systems_add_test(
     NAME jpeg-decode
     TARGET jpegdecode
     GPU ON
-    ENVIRONMENT "${_jpeg_decode_environment}"
+    ENVIRONMENT "${_base_environment};${_jpeg_decode_environment}"
     RUN_ARGS -i ${PROJECT_BINARY_DIR}/images -b 32
     LABELS "decode"
 )
+
+if(${ENABLE_ROCPD_TEST})
+    rocprofiler_systems_add_test(
+        SKIP_BASELINE SKIP_RUNTIME SKIP_REWRITE
+        NAME jpeg-decode-rocpd
+        TARGET jpegdecode
+        GPU ON
+        ENVIRONMENT "${_rocpd_environment};${_jpeg_decode_environment}"
+        RUN_ARGS -i ${PROJECT_BINARY_DIR}/images -b 32
+        LABELS "decode;rocpd"
+        SAMPLING_PASS_REGEX "rocpd.db"
+        REWRITE_RUN_PASS_REGEX "rocpd.db"
+    )
+endif()
 
 rocprofiler_systems_add_validation_test(
     NAME jpeg-decode-sampling

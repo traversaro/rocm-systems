@@ -20,6 +20,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+find_package(ROCmVersion)
+
+if(NOT ROCmVersion_FOUND)
+    message(
+        WARNING
+        "ROCmVersion_FOUND not found, skipping tests in ${CMAKE_CURRENT_LIST_FILE}"
+    )
+    return()
+endif()
+
 # -------------------------------------------------------------------------------------- #
 #
 # roctx tests
@@ -31,12 +41,27 @@ set(_roctx_environment
     "ROCPROFSYS_ROCM_DOMAINS=hip_runtime_api,marker_api,kernel_dispatch"
 )
 rocprofiler_systems_add_test(
-    # SKIP_BASELINE SKIP_RUNTIME SKIP_REWRITE SKIP_RUNTIME
+    SKIP_RUNTIME
     NAME roctx-api
     TARGET roctx
     GPU ON
-    ENVIRONMENT "${_roctx_environment}"
+    ENVIRONMENT "${_base_environment};${_roctx_environment}"
 )
+
+if(${ENABLE_ROCPD_TEST})
+    rocprofiler_systems_add_test(
+        SKIP_BASELINE SKIP_RUNTIME
+        NAME roctx-api-rocpd
+        TARGET roctx
+        GPU ON
+        ENVIRONMENT
+            "${_rocpd_environment};${_roctx_environment}"
+        SAMPLING_PASS_REGEX "rocpd.db"
+        REWRITE_RUN_PASS_REGEX "rocpd.db"
+        LABELS "roctx;rocpd"
+    )
+endif()
+
 set(ROCTX_LABEL
     roctxMark_GPU_workload
     roctxRangePush_run_profiling

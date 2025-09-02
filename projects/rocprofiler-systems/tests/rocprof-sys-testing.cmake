@@ -68,6 +68,20 @@ if(MAX_CAUSAL_ITERATIONS GREATER 100)
     set(MAX_CAUSAL_ITERATIONS 100)
 endif()
 
+if(
+    DEFINED ROCmVersion_FULL_VERSION
+    AND ROCmVersion_FULL_VERSION VERSION_GREATER_EQUAL "7.0"
+)
+    set(ENABLE_ROCPD_TEST YES)
+else()
+    set(ENABLE_ROCPD_TEST NO)
+endif()
+
+rocprofiler_systems_message(
+    STATUS
+    "ROCm ${ROCmVersion_FULL_VERSION} - Including ROCPD Test: ${ENABLE_ROCPD_TEST}"
+)
+
 set(_test_library_path
     "LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}:$ENV{LD_LIBRARY_PATH}"
 )
@@ -205,6 +219,18 @@ set(_window_environment
     "ROCPROFSYS_TIME_OUTPUT=OFF"
     "ROCPROFSYS_FILE_OUTPUT=ON"
     "ROCPROFSYS_VERBOSE=2"
+    "${_test_openmp_env}"
+    "${_test_library_path}"
+)
+
+set(_rocpd_environment
+    "ROCPROFSYS_USE_ROCPD=ON"
+    "ROCPROFSYS_TRACE=OFF"
+    "ROCPROFSYS_PROFILE=OFF"
+    "ROCPROFSYS_USE_SAMPLING=ON"
+    "ROCPROFSYS_USE_PROCESS_SAMPLING=ON"
+    "ROCPROFSYS_TIME_OUTPUT=OFF"
+    "ROCPROFSYS_FILE_OUTPUT=ON"
     "${_test_openmp_env}"
     "${_test_library_path}"
 )

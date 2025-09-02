@@ -22,7 +22,7 @@
 
 # -------------------------------------------------------------------------------------- #
 #
-# ROCm tests
+# ROCm transpose tests
 #
 # -------------------------------------------------------------------------------------- #
 
@@ -139,5 +139,21 @@ if(ROCPROFSYS_USE_ROCM)
         ARGS --counter-names ${ROCPROFSYS_COUNTER_NAMES_ARG} -p
         EXIST_FILES ${ROCPROFSYS_FILE_CHECKS}
         LABELS "rocprofiler"
+    )
+endif()
+
+if(${ENABLE_ROCPD_TEST})
+    rocprofiler_systems_add_test(
+        SKIP_BASELINE SKIP_RUNTIME
+        NAME transpose-rocpd
+        TARGET transpose
+        MPI ${TRANSPOSE_USE_MPI}
+        GPU ON
+        NUM_PROCS ${NUM_PROCS}
+        REWRITE_ARGS -e -v 2 --print-instructions -E uniform_int_distribution
+        ENVIRONMENT "${_rocpd_environment}"
+        LABELS "rocpd"
+        SAMPLING_PASS_REGEX "rocpd.db"
+        REWRITE_RUN_PASS_REGEX "rocpd.db"
     )
 endif()
