@@ -245,22 +245,9 @@ const char* ihipGetErrorName(hipError_t hip_error);
     return hipErrorStreamCaptureImplicit;                                                          \
   }
 
-#define STREAM_CAPTURE(name, stream, ...)                                                          \
-  hip::getStreamPerThread(stream);                                                                 \
-  if (stream != nullptr && stream != hipStreamLegacy &&                                            \
-      reinterpret_cast<hip::Stream*>(stream)->GetCaptureStatus() ==                                \
-          hipStreamCaptureStatusActive) {                                                          \
-    hipError_t status = hip::capture##name(stream, ##__VA_ARGS__);                                 \
-    return status;                                                                                 \
-  } else if (stream != nullptr && stream != hipStreamLegacy &&                                     \
-             reinterpret_cast<hip::Stream*>(stream)->GetCaptureStatus() ==                         \
-                 hipStreamCaptureStatusInvalidated) {                                              \
-    return hipErrorStreamCaptureInvalidated;                                                       \
-  }
-
-#define PER_THREAD_DEFAULT_STREAM(stream)                                                         \
-  if (stream == nullptr || stream == hipStreamLegacy) {                                           \
-    stream = getPerThreadDefaultStream();                                                         \
+#define PER_THREAD_DEFAULT_STREAM(stream)                                                          \
+  if (stream == nullptr || stream == hipStreamLegacy) {                                            \
+    stream = getPerThreadDefaultStream();                                                          \
   }
 
 namespace hc {
@@ -671,16 +658,29 @@ public:
   extern hipError_t ihipDeviceGetCount(int* count);
   extern int ihipGetDevice();
 
-  extern hipError_t ihipMalloc(void** ptr, size_t sizeBytes, unsigned int flags);
-  extern hipError_t ihipHostMalloc(void** ptr, size_t sizeBytes, unsigned int flags);
-  extern amd::Memory* getMemoryObject(const void* ptr, size_t& offset, size_t size = 0);
-  extern amd::Memory* getMemoryObjectWithOffset(const void* ptr, const size_t size = 0);
-  extern void getStreamPerThread(hipStream_t& stream);
-  extern hipStream_t getPerThreadDefaultStream();
-  extern hipError_t ihipUnbindTexture(textureReference* texRef);
-  extern hipError_t ihipHostRegister(void* hostPtr, size_t sizeBytes, unsigned int flags);
-  extern hipError_t ihipHostUnregister(void* hostPtr);
-  extern hipError_t ihipGetDeviceProperties(hipDeviceProp_t* props, hipDevice_t device);
+template<typename CaptureFunc, typename... Args>
+  hipError_t StreamCapture(CaptureFunc&& captureFunc, hipStream_t stream, Args&&... args) {
+  hipError_t status = hipSuccess;
+  if (reinterpret_cast<hip::Stream*>(stream)->GetCaptureStatus() 
+                        == hipStreamCaptureStatusActive) {
+    status = captureFunc(stream, std::forward<Args>(args)...);
+  } else if (reinterpret_cast<hip::Stream*>(stream)->GetCaptureStatus() 
+             == hipStreamCaptureStatusInvalidated) {
+    status = hipErrorStreamCaptureInvalidated;
+  }
+  return status;
+}
+
+extern hipError_t ihipMalloc(void** ptr, size_t sizeBytes, unsigned int flags);
+extern hipError_t ihipHostMalloc(void** ptr, size_t sizeBytes, unsigned int flags);
+extern amd::Memory* getMemoryObject(const void* ptr, size_t& offset, size_t size = 0);
+extern amd::Memory* getMemoryObjectWithOffset(const void* ptr, const size_t size = 0);
+extern void getStreamPerThread(hipStream_t& stream);
+extern hipStream_t getPerThreadDefaultStream();
+extern hipError_t ihipUnbindTexture(textureReference* texRef);
+extern hipError_t ihipHostRegister(void* hostPtr, size_t sizeBytes, unsigned int flags);
+extern hipError_t ihipHostUnregister(void* hostPtr);
+extern hipError_t ihipGetDeviceProperties(hipDeviceProp_t* props, hipDevice_t device);
 
   extern hipError_t ihipDeviceGet(hipDevice_t* device, int deviceId);
   extern hipError_t ihipStreamOperation(hipStream_t stream, cl_command_type cmdType, void* ptr,
