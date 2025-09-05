@@ -26,8 +26,30 @@
 #
 # -------------------------------------------------------------------------------------- #
 
+set(_window_environment_base
+    "ROCPROFSYS_USE_SAMPLING=OFF"
+    "ROCPROFSYS_USE_PROCESS_SAMPLING=OFF"
+    "ROCPROFSYS_TIME_OUTPUT=OFF"
+    "ROCPROFSYS_FILE_OUTPUT=ON"
+    "ROCPROFSYS_VERBOSE=2"
+    "${_test_openmp_env}"
+    "${_test_library_path}"
+)
+
+set(_window_environment
+    "ROCPROFSYS_TRACE=ON"
+    "ROCPROFSYS_PROFILE=ON"
+    ${_window_environment_base}
+)
+set(_window_environment_rocpd
+    "ROCPROFSYS_TRACE=OFF"
+    "ROCPROFSYS_PROFILE=OFF"
+    "ROCPROFSYS_USE_ROCPD=ON"
+    ${_window_environment_base}
+)
+
 rocprofiler_systems_add_test(
-    SKIP_BASELINE SKIP_SAMPLING ${_TRACE_WINDOW_SKIP}
+    SKIP_BASELINE SKIP_SAMPLING
     NAME trace-time-window
     TARGET trace-time-window
     REWRITE_ARGS -e -v 2 --caller-include inner -i 4096
@@ -89,7 +111,7 @@ rocprofiler_systems_add_validation_test(
 )
 
 rocprofiler_systems_add_test(
-    SKIP_BASELINE SKIP_SAMPLING ${_TRACE_WINDOW_SKIP}
+    SKIP_BASELINE SKIP_SAMPLING
     NAME trace-time-window-delay
     TARGET trace-time-window
     REWRITE_ARGS -e -v 2 --caller-include inner -i 4096
@@ -136,3 +158,29 @@ rocprofiler_systems_add_validation_test(
          0
          -p
 )
+
+if(${ENABLE_ROCPD_TEST})
+    rocprofiler_systems_add_test(
+        SKIP_BASELINE SKIP_SAMPLING
+        NAME trace-time-window-rocpd
+        TARGET trace-time-window
+        REWRITE_ARGS -e -v 2 --caller-include inner -i 4096
+        RUNTIME_ARGS -e -v 1 --caller-include inner -i 4096
+        LABELS "time-window;rocpd"
+        ENVIRONMENT
+            "${_window_environment_rocpd};ROCPROFSYS_TRACE_DURATION=1.25"
+    )
+
+    rocprofiler_systems_add_test(
+        SKIP_BASELINE SKIP_SAMPLING
+        NAME trace-time-window-delay-rocpd
+        TARGET trace-time-window
+        REWRITE_ARGS -e -v 2 --caller-include inner -i 4096
+        RUNTIME_ARGS -e -v 1 --caller-include inner -i 4096
+        LABELS "time-window;rocpd"
+        ENVIRONMENT
+            "${_window_environment_rocpd};ROCPROFSYS_TRACE_DELAY=0.75;ROCPROFSYS_TRACE_DURATION=0.75"
+        SAMPLING_PASS_REGEX "rocpd.db"
+        REWRITE_RUN_PASS_REGEX "rocpd.db"
+    )
+endif()
