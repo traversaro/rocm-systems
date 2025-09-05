@@ -57,6 +57,14 @@ rocprofiler_systems_add_test(
     LABELS "decode"
 )
 
+rocprofiler_systems_add_validation_test(
+    NAME video-decode-sampling
+    PERFETTO_METRIC "rocm_rocdecode_api"
+    PERFETTO_FILE "perfetto-trace.proto"
+    LABELS "decode"
+    ARGS -l rocDecCreateVideoParser -c 2 -d 1 ${VCN_COUNTER_NAMES_ARG} -p
+)
+
 if(${ENABLE_ROCPD_TEST})
     rocprofiler_systems_add_test(
         SKIP_BASELINE SKIP_RUNTIME SKIP_REWRITE
@@ -70,14 +78,6 @@ if(${ENABLE_ROCPD_TEST})
         REWRITE_RUN_PASS_REGEX "rocpd.db"
     )
 endif()
-
-rocprofiler_systems_add_validation_test(
-    NAME video-decode-sampling
-    PERFETTO_METRIC "rocm_rocdecode_api"
-    PERFETTO_FILE "perfetto-trace.proto"
-    LABELS "decode"
-    ARGS -l rocDecCreateVideoParser -c 2 -d 1 ${VCN_COUNTER_NAMES_ARG} -p
-)
 
 # -------------------------------------------------------------------------------------- #
 #
@@ -95,6 +95,14 @@ rocprofiler_systems_add_test(
     LABELS "decode"
 )
 
+rocprofiler_systems_add_validation_test(
+    NAME jpeg-decode-sampling
+    PERFETTO_METRIC "rocm_rocjpeg_api"
+    PERFETTO_FILE "perfetto-trace.proto"
+    LABELS "decode"
+    ARGS -l rocJpegCreate -c 1 -d 1 ${JPEG_COUNTER_NAMES_ARG} -p
+)
+
 if(${ENABLE_ROCPD_TEST})
     rocprofiler_systems_add_test(
         SKIP_BASELINE SKIP_RUNTIME SKIP_REWRITE
@@ -108,11 +116,3 @@ if(${ENABLE_ROCPD_TEST})
         REWRITE_RUN_PASS_REGEX "rocpd.db"
     )
 endif()
-
-rocprofiler_systems_add_validation_test(
-    NAME jpeg-decode-sampling
-    PERFETTO_METRIC "rocm_rocjpeg_api"
-    PERFETTO_FILE "perfetto-trace.proto"
-    LABELS "decode"
-    ARGS -l rocJpegCreate -c 1 -d 1 ${JPEG_COUNTER_NAMES_ARG} -p
-)

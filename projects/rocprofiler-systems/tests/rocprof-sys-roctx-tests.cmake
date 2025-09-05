@@ -48,20 +48,6 @@ rocprofiler_systems_add_test(
     ENVIRONMENT "${_base_environment};${_roctx_environment}"
 )
 
-if(${ENABLE_ROCPD_TEST})
-    rocprofiler_systems_add_test(
-        SKIP_BASELINE SKIP_RUNTIME
-        NAME roctx-api-rocpd
-        TARGET roctx
-        GPU ON
-        ENVIRONMENT
-            "${_rocpd_environment};${_roctx_environment}"
-        SAMPLING_PASS_REGEX "rocpd.db"
-        REWRITE_RUN_PASS_REGEX "rocpd.db"
-        LABELS "roctx;rocpd"
-    )
-endif()
-
 set(ROCTX_LABEL
     roctxMark_GPU_workload
     roctxRangePush_run_profiling
@@ -111,3 +97,17 @@ rocprofiler_systems_add_validation_test(
     LABELS "roctx"
     ARGS -l ${ROCTX_LABEL} -c ${ROCTX_COUNT} -d ${ROCTX_DEPTH} -p
 )
+
+if(${ENABLE_ROCPD_TEST})
+    rocprofiler_systems_add_test(
+        SKIP_BASELINE SKIP_RUNTIME
+        NAME roctx-api-rocpd
+        TARGET roctx
+        GPU ON
+        ENVIRONMENT
+            "${_rocpd_environment};${_roctx_environment}"
+        SAMPLING_PASS_REGEX "rocpd.db"
+        REWRITE_RUN_PASS_REGEX "rocpd.db"
+        LABELS "roctx;rocpd"
+    )
+endif()

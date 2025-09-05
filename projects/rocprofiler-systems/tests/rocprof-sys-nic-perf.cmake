@@ -75,26 +75,6 @@ set_tests_properties(
         LABELS "sampling;papi;network"
 )
 
-if(${ENABLE_ROCPD_TEST})
-    add_test(
-        NAME nic-performance-rocpd
-        COMMAND
-            $<TARGET_FILE:rocprofiler-systems-sample> -- wget --no-check-certificate
-            ${_download_url} -O /tmp/rocprofiler-systems.test.bin
-        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-    )
-
-    set_tests_properties(
-        nic-performance-rocpd
-        PROPERTIES
-            ENVIRONMENT
-                "${_rocpd_environment};${_nic_perf_environment};ROCPROFSYS_OUTPUT_PREFIX=nic-performance-rocpd/"
-            TIMEOUT 120
-            LABELS "sampling;papi;network;rocpd"
-            PASS_REGULAR_EXPRESSION "rocpd.db"
-    )
-endif()
-
 # Validate the perfetto file generated from NIC performance test output
 add_test(
     NAME validate-nic-performance-perfetto
@@ -123,5 +103,25 @@ set_tests_properties(
         PASS_REGULAR_EXPRESSION ${_test_pass_regex}
         FAIL_REGULAR_EXPRESSION ${_test_fail_regex}
 )
+
+if(${ENABLE_ROCPD_TEST})
+    add_test(
+        NAME nic-performance-rocpd
+        COMMAND
+            $<TARGET_FILE:rocprofiler-systems-sample> -- wget --no-check-certificate
+            ${_download_url} -O /tmp/rocprofiler-systems.test.bin
+        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    )
+
+    set_tests_properties(
+        nic-performance-rocpd
+        PROPERTIES
+            ENVIRONMENT
+                "${_rocpd_environment};${_nic_perf_environment};ROCPROFSYS_OUTPUT_PREFIX=nic-performance-rocpd/"
+            TIMEOUT 120
+            LABELS "sampling;papi;network;rocpd"
+            PASS_REGULAR_EXPRESSION "rocpd.db"
+    )
+endif()
 
 list(POP_BACK CMAKE_MESSAGE_CONTEXT)
