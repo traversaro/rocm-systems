@@ -475,14 +475,50 @@ namespace hip {
 hipError_t hipOccupancyAvailableDynamicSMemPerBlock(size_t* dynamicSmemSize, const void* f,
                                                     int numBlocks, int blockSize){
   HIP_INIT_API(hipOccupancyAvailableDynamicSMemPerBlock, dynamicSmemSize, f, numBlocks, blockSize);
-  if ((dynamicSmemSize == nullptr)) {
+  if (dynamicSmemSize == nullptr || numBlocks <= 0 || blockSize <= 0) {
     HIP_RETURN(hipErrorInvalidValue);
   }
 
-  // TO DO IMPLEMENTATION
+  hipFunction_t func;
+  int dev_id;
+  dev_id = ihipGetDevice();
+  hipError_t hip_error = PlatformState::instance().getStatFunc(&func, f, dev_id);
 
-  hipError_t ret = hipSuccess;
-  HIP_RETURN(ret);
+  if (hip_error != hipSuccess || func == nullptr) {
+    HIP_RETURN(hipErrorInvalidDeviceFunction);
+  }
+
+  hip::DeviceFunc* function = hip::DeviceFunc::asFunction(func);
+  if (function == nullptr) {
+    HIP_RETURN(hipErrorInvalidHandle);
+  }
+
+  hipDeviceProp_t prop = {0};
+  HIP_RETURN_ONFAIL(ihipGetDeviceProperties(&prop, dev_id));
+
+  // Regs limitation check
+  int regsPerThread = prop.regsPerBlock / prop.maxThreadsPerBlock;
+  if (numBlocks * blockSize * regsPerThread > prop.regsPerMultiprocessor) {
+    HIP_RETURN(hipErrorInvalidValue);
+  }
+
+  // Threads limitation check
+  if (numBlocks * blockSize > prop.maxThreadsPerMultiProcessor) {
+    HIP_RETURN(hipErrorInvalidValue);
+  }
+
+  // Shared memory limitation check
+  if (numBlocks * prop.sharedMemPerBlock > prop.maxSharedMemoryPerMultiProcessor) {
+    HIP_RETURN(hipErrorInvalidValue);
+  }
+
+  const amd::Device& device = *hip::getCurrentDevice()->devices()[dev_id];
+  const amd::Kernel& kernel = *function->kernel();
+  const device::Kernel::WorkGroupInfo* wrkGrpInfo = kernel.getDeviceKernel(device)->workGroupInfo();
+
+  *dynamicSmemSize = prop.sharedMemPerBlock - wrkGrpInfo->usedLDSSize_;
+
+  HIP_RETURN(hipSuccess);
 }
 
 hipError_t hipOccupancyMaxPotentialBlockSize(int* gridSize, int* blockSize, const void* f,
