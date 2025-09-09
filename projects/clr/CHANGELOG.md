@@ -28,6 +28,7 @@ Full documentation for HIP is available at [rocm.docs.amd.com](https://rocm.docs
     - `hipGetDriverEntryPoint ` gets function pointer of a HIP API.
     - `hipSetValidDevices`      sets a default list of devices that can be used by HIP
     - `hipStreamGetId`          queries the id of a stream
+    - `hipOccupancyAvailableDynamicSMemPerBlock` Returns dynamic shared memory available per block when launching numBlocks blocks on CU.
 * Changed HIP APIs
     - `hipMemAllocationType` now has hip exclusive enum hipMemAllocationTypeUncached
     - `hipMemCreate`  now checks for hipMemAllocationTypeUncached enum from
