@@ -863,6 +863,8 @@ hipError_t hipMemcpy3DBatchAsync(size_t numOps, struct hipMemcpy3DBatchOp* opLis
                                  unsigned long long flags, hipStream_t stream);
 hipError_t hipMemcpy3DPeer(hipMemcpy3DPeerParms* p);
 hipError_t hipMemcpy3DPeerAsync(hipMemcpy3DPeerParms* p, hipStream_t stream);
+hipError_t hipOccupancyAvailableDynamicSMemPerBlock(size_t* dynamicSmemSize, const void* f,
+                                                    int numBlocks, int blockSize);
 }  // namespace hip
 
 namespace hip {
@@ -1398,6 +1400,7 @@ void UpdateDispatchTable(HipDispatchTable* ptrDispatchTable) {
   ptrDispatchTable->hipMemcpy3DBatchAsync_fn = hip::hipMemcpy3DBatchAsync;
   ptrDispatchTable->hipMemcpy3DPeer_fn = hip::hipMemcpy3DPeer;
   ptrDispatchTable->hipMemcpy3DPeerAsync_fn = hip::hipMemcpy3DPeerAsync;
+  ptrDispatchTable->hipOccupancyAvailableDynamicSMemPerBlock_fn = hip::hipOccupancyAvailableDynamicSMemPerBlock;
 }
 
 #if HIP_ROCPROFILER_REGISTER > 0
