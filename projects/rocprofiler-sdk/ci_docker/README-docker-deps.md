@@ -1,131 +1,205 @@
 # ROCProfiler-SDK CI Dependency Docker Images
 
-This directory contains Dockerfiles that pre-install all the dependencies needed for rocprofiler-sdk CI builds. These images can significantly speed up CI execution by avoiding repeated package installations.
+This directory contains a multi-stage flow for building ROCm CI base images for `rocprofiler-sdk`:
+
+- Stage 1 (Dependencies): OS-specific toolchains, libs, Python reqs, repo clone + submodules, submodule cache.
+- Stage 2 (ROCm Base): Configures AMDGPU/ROCm repos, installs core ROCm packages, fetches/extracts therock tarball into `/opt/rocm`.
+- Stage 3 (rocm-systems deps): Builds `projects/rocprofiler-register`, `projects/rocr-runtime`, `projects/aqlprofile` from source, plus optional media dependencies `rocDecode` and `rocJPEG` (all toggleable).
 
 ## Images Available
 
 ### Ubuntu 22.04 (`Dockerfile.ubuntu-22.04`)
-Based on: `docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest`
+Base: `docker.io/rocm/rocprofiler-private:ubuntu-22.04`
 
-**Pre-installed packages:**
-- Build tools: gcc-11/12/13, g++, clang-15, cmake, make
-- Development libraries: libdw-dev, libsqlite3-dev, libdrm-dev, libelf-dev
-- Python: python3, pip, venv
-- Documentation: doxygen, graphviz
-- Coverage tools: gcovr, wkhtmltopdf, X11 fonts
-- Sanitizer libraries: libasan8, libtsan2
-- Build acceleration: ccache
+### Ubuntu 24.04 (`Dockerfile.ubuntu-24.04`)
+Base: `docker.io/rocm/rocprofiler-private:ubuntu-24.04`
 
 ### RHEL 8.8 (`Dockerfile.rhel-8.8`)
-Based on: `docker.io/rocm/rocprofiler-private:rhel-8.8-gfx94X-latest`
-
-**Pre-installed packages:**
-- Build tools: gcc, gcc-c++, gcc-toolset-11, cmake
-- Development libraries: elfutils-libelf-devel, sqlite-devel, libdrm-devel
-- Python: python3, pip
-- Documentation: doxygen, graphviz
-- Build acceleration: sccache
+Base: `docker.io/rocm/rocprofiler-private:rhel-8.8`
 
 ### RHEL 9.5 (`Dockerfile.rhel-9.5`)
-Based on: `docker.io/rocm/rocprofiler-private:rhel-9.5-gfx94X-latest`
-
-**Pre-installed packages:**
-- Similar to RHEL 8.8 but with RHEL 9 package versions
-- GCC toolset 11 for modern C++ support
-- Enhanced development tools
+Base: `docker.io/rocm/rocprofiler-private:rhel-9.5`
 
 ### SLES 15.6 (`Dockerfile.sles-15.6`)
-Based on: `docker.io/rocm/rocprofiler-private:sles-15.6-gfx94X-latest`
+Base: `docker.io/rocm/rocprofiler-private:sles-15.6`
 
-**Pre-installed packages:**
-- Build tools: gcc, gcc-c++, cmake (gcc11 if available)
-- Development libraries: libelf-devel, sqlite3-devel, libdrm-devel
-- Python: python3, pip
-- Documentation: doxygen, graphviz
-- Build acceleration: sccache
+All stage-1 images include:
+- Build tools (gcc toolchains, clang, cmake), development libraries (elfutils, sqlite, libdrm, etc.)
+- Python (pip/venv) and documentation tools (doxygen, graphviz)
+- Acceleration (ccache on Ubuntu, sccache on RHEL/SLES)
+- Minimal repo sparse-checkout of `projects/rocprofiler-sdk/requirements.txt` only, then cleanup
+
+## Tagging Convention
+
+- Stage 1 (OS-only):
+  - `docker.io/rocm/rocprofiler-private:<OS>-<VER>-<DATE>`
+  - `docker.io/rocm/rocprofiler-private:<OS>-<VER>-latest`
+
+- Stage 2 (OS + GPU tarball):
+  - `docker.io/rocm/rocprofiler-private:<OS>-<VER>-<GPU>-<DATE>`
+  - `docker.io/rocm/rocprofiler-private:<OS>-<VER>-<GPU>-latest`
+
+Examples:
+- `docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest`
+- `docker.io/rocm/rocprofiler-private:rhel-9.5-gfx110X-20250115`
 
 ## Building Images
 
 ### Using the Build Script (Recommended)
 
 ```bash
-# Build all distributions
-./docker-build.sh --all
+# Build all distributions (Ubuntu 22.04/24.04, RHEL 8.8/9.5, SLES 15.6) and all GPUs
+projects/rocprofiler-sdk/ci_docker/docker-build.sh --all
 
 # Build specific distributions
-./docker-build.sh ubuntu rhel9
+projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu rhel9
+
+# Limit GPUs (choose any of: gfx94X,gfx950,gfx110X,gfx120X)
+projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu --gpus gfx94X
 
 # Build and push to registry
-./docker-build.sh --push ubuntu
+projects/rocprofiler-sdk/ci_docker/docker-build.sh --push ubuntu ubuntu24
 
 # Show help
-./docker-build.sh --help
+projects/rocprofiler-sdk/ci_docker/docker-build.sh --help
 ```
 
-### Manual Building
+#### CLI options
+
+- **-h, --help**: Show help
+- **-p, --push**: Push images to registry after building
+- **-a, --all**: Build all distributions (default)
+- **-g, --gpus <list>**: Comma-separated GPU list; default builds all. Example: `--gpus gfx94X,gfx950`
+- **--skip-rocm**: Build only Stage 1 (skip Stages 2–4)
+
+Distributions you can pass positionally (one or more):
+- **ubuntu** (22.04)
+- **ubuntu24** (24.04)
+- **rhel8** (8.8)
+- **rhel9** (9.5)
+- **sles** (15.6)
+
+Examples:
 
 ```bash
-# Ubuntu 22.04
-docker build -f Dockerfile.ubuntu-22.04 -t rocm/rocprofiler-deps:ubuntu-22.04-latest .
+# Stage 1 only (skip Stage 2/3/4) for all distributions
+projects/rocprofiler-sdk/ci_docker/docker-build.sh --skip-rocm --all
 
-# RHEL 8.8
-docker build -f Dockerfile.rhel-8.8 -t rocm/rocprofiler-deps:rhel-8.8-latest .
+# Build Ubuntu 24.04 with a single GPU target
+projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu24 --gpus gfx94X
+```
 
-# RHEL 9.5
-docker build -f Dockerfile.rhel-9.5 -t rocm/rocprofiler-deps:rhel-9.5-latest .
+The script will:
+- Resolve the latest "therock" tarball per GPU from S3 (no-sign-request)
+- Build Stage 1 OS images
+- Build Stage 2 OS+GPU images that download and extract the tarball to `/opt/rocm`
+- Optionally build Stage 3 (rocm-systems deps including media dependencies)
+- Optionally push all produced tags
 
-# SLES 15.6
-docker build -f Dockerfile.sles-15.6 -t rocm/rocprofiler-deps:sles-15.6-latest .
+
+### Manual Building (advanced)
+
+Stage 1:
+```bash
+docker build -f projects/rocprofiler-sdk/ci_docker/Dockerfile.ubuntu-22.04 \
+  -t docker.io/rocm/rocprofiler-private:ubuntu-22.04-latest \
+  projects/rocprofiler-sdk/ci_docker
+```
+
+Stage 2 (requires a tarball key):
+```bash
+docker build -f projects/rocprofiler-sdk/ci_docker/Dockerfile.stages \
+  --target stage2 \
+  --build-arg BASE_IMAGE=docker.io/rocm/rocprofiler-private:ubuntu-22.04-latest \
+  --build-arg GPU_TYPE=gfx94X \
+  --build-arg TARBALL_KEY=therock-dist-linux-gfx94X-...tar.gz \
+  -t docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest \
+  projects/rocprofiler-sdk/ci_docker
+
+Stage 3 (optional rocm-systems deps including media dependencies):
+```bash
+docker build -f projects/rocprofiler-sdk/ci_docker/Dockerfile.stages \
+  --target stage3 \
+  --build-arg BASE_IMAGE=docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest \
+  --build-arg BUILD_ROCR_RUNTIME=false \
+  --build-arg BUILD_ROCDECODE=false \
+  --build-arg BUILD_ROCJPEG=false \
+  -t docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-stage3-latest \
+  projects/rocprofiler-sdk/ci_docker
+```
 ```
 
 ## Using in CI
 
-To use these optimized images in your CI workflows, update the container image references:
+Reference the OS+GPU tag (stage-2) in your workflow:
 
 ```yaml
-# Before (slower - installs deps every time)
 container:
   image: docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest
-
-# After (faster - deps pre-installed)
-container:
-  image: docker.io/rocm/rocprofiler-deps:ubuntu-22.04-latest
+  credentials:
+    username: ${{ secrets.ROCPROFILER_AZURE_CI_USER }}
+    password: ${{ secrets.ROCPROFILER_AZURE_CI_PASS }}
 ```
 
-### Example CI Workflow Modification
+### Submodule cache bundled in the image
+
+Stage-1 images include a prebuilt archive of the repository's submodules at `/opt/rocprofiler-submodules-cache.tar.gz` and a helper script `/usr/local/bin/restore-submodules-cache.sh` to restore them into your workspace. This reduces network fetches during `git submodule update`.
+
+Usage in a GitHub Actions job (inside the container):
 
 ```yaml
 jobs:
-  core-deb:
+  build:
     runs-on: rocprofiler-navi3-dind
     container:
-      image: docker.io/rocm/rocprofiler-deps:ubuntu-22.04-latest
+      image: docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest
       credentials:
         username: ${{ secrets.ROCPROFILER_AZURE_CI_USER }}
         password: ${{ secrets.ROCPROFILER_AZURE_CI_PASS }}
     steps:
-      # Skip dependency installation steps - already pre-installed!
-      - name: Clone ROCProfiler SDK
-        uses: actions/checkout@v5
-        # ... rest of workflow
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          set-safe-directory: true
+
+      - name: Restore submodules from image cache
+        shell: bash
+        run: |
+          /usr/local/bin/restore-submodules-cache.sh "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory '*'
+
+      - name: Init/Update submodules
+        shell: bash
+        run: git submodule update --init --recursive --jobs 16
 ```
 
-## Benefits
+Notes:
+- The restore step should run after checkout so that `$GITHUB_WORKSPACE/.git` exists.
+- The helper script defaults to `/github/workspace` if no path is provided; passing `$GITHUB_WORKSPACE` is recommended.
+- You can keep your existing submodule cache logic as a fallback; this image-level cache works even without network access to submodule remotes.
 
-### Time Savings
-- **Ubuntu builds**: ~2-3 minutes saved per job (dependency installation eliminated)
-- **RHEL/SLES builds**: ~3-4 minutes saved per job (slower package managers)
-- **Overall**: 15-20% reduction in total CI time
+### Cache-busting for repository changes
 
-### Reliability
-- Eliminates package installation failures
-- Consistent dependency versions across builds
-- Reduces network-related CI failures
+Stage-1 uses build args to control checkout so Docker caching is deterministic:
 
-### Resource Efficiency
-- Lower bandwidth usage (dependencies cached in image)
-- Reduced load on package repositories
-- More predictable CI resource consumption
+- `ROCM_SYSTEMS_REF` (default: `develop`)
+- `ROCM_SYSTEMS_REV` (optional commit SHA; set to empty to use the ref tip)
+
+Examples:
+
+```bash
+# Pin to a specific commit
+ROCM_SYSTEMS_REV=<sha> projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu
+
+# Force cache bust by changing the rev value
+ROCM_SYSTEMS_REV=$(date +%s) projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu
+```
+
+Stage-4 similarly supports cache-busting build args for external repos:
+
+- `ROCDECODE_REF`/`ROCDECODE_REV`
+- `ROCJPEG_REF`/`ROCJPEG_REV`
 
 ## Maintenance
 
@@ -141,8 +215,10 @@ When CI requirements change:
 ### Version Management
 
 Images are tagged with both date and "latest":
-- `rocm/rocprofiler-deps:ubuntu-22.04-20241211` (specific build)
-- `rocm/rocprofiler-deps:ubuntu-22.04-latest` (current version)
+- `docker.io/rocm/rocprofiler-private:ubuntu-22.04-20250115` (stage-1 specific build)
+- `docker.io/rocm/rocprofiler-private:ubuntu-22.04-latest` (stage-1 current)
+- `docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-20250115` (stage-2 specific build)
+- `docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest` (stage-2 current)
 
 ### Security Updates
 
@@ -150,7 +226,7 @@ Rebuild images periodically to include security updates:
 
 ```bash
 # Rebuild all images with latest base image updates
-./docker-build.sh --all --push
+projects/rocprofiler-sdk/ci_docker/docker-build.sh --all --push
 ```
 
 ## Dependencies Included
@@ -181,7 +257,7 @@ Images include only essential packages. For further size reduction:
 Test built images with a sample build:
 
 ```bash
-docker run --rm -it rocm/rocprofiler-deps:ubuntu-22.04-latest bash
+docker run --rm -it docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest bash
 # Inside container:
 gcc --version
 cmake --version

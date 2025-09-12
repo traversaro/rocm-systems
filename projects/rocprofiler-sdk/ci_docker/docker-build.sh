@@ -8,28 +8,70 @@ set -e
 
 # Configuration
 REGISTRY="docker.io/rocm"
-BASE_TAG="rocprofiler-deps"
+BASE_TAG="rocprofiler-private"
 BUILD_DATE=$(date -u +"%Y%m%d")
 GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+AWS_CLI_IMAGE="amazon/aws-cli:2.17.13"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Function to build and tag image
-build_image() {
+# Function to build and tag stage-1 (deps) image
+build_stage1_image() {
     local dockerfile="$1"
     local os_name="$2"
     local os_version="$3"
-    
-    echo "Building ${os_name}-${os_version} image..."
-    
-    # Build the image
+
+    echo "Building stage-1 (deps) ${os_name}-${os_version} image..."
+
     docker build \
-        -f "${dockerfile}" \
+        -f "${SCRIPT_DIR}/${dockerfile}" \
         -t "${REGISTRY}/${BASE_TAG}:${os_name}-${os_version}-${BUILD_DATE}" \
         -t "${REGISTRY}/${BASE_TAG}:${os_name}-${os_version}-latest" \
         --build-arg BUILD_DATE="${BUILD_DATE}" \
         --build-arg GIT_HASH="${GIT_HASH}" \
-        .
-    
-    echo "Successfully built ${os_name}-${os_version} image"
+        --build-arg ROCM_SYSTEMS_REF="${ROCM_SYSTEMS_REF:-develop}" \
+        --build-arg ROCM_SYSTEMS_REV="${ROCM_SYSTEMS_REV:-}" \
+        "${SCRIPT_DIR}"
+
+    echo "Successfully built stage-1 ${os_name}-${os_version}"
+}
+
+# Get latest therock tarball S3 key for a given GPU type (e.g., gfx94X)
+get_latest_tarball_key() {
+    local gpu_type="$1"
+    # Use Dockerized AWS CLI to avoid host dependency; bucket is public
+    docker run --rm "${AWS_CLI_IMAGE}" \
+        s3api list-objects-v2 \
+        --bucket therock-nightly-tarball \
+        --no-sign-request \
+        --output json \
+        --query "sort_by(Contents[?contains(Key, 'linux-${gpu_type}')], &LastModified)[-1].Key" | \
+        tr -d '"\r\n'
+}
+
+# Function to build and tag stage-2 (final) image atop stage-1
+build_stage2_image() {
+    local os_name="$1"
+    local os_version="$2"
+    local gpu_type="$3"
+    local tarball_key="$4"
+
+    local base_image="${REGISTRY}/${BASE_TAG}:${os_name}-${os_version}-latest"
+    local final_tag_date="${REGISTRY}/${BASE_TAG}:${os_name}-${os_version}-${gpu_type}-${BUILD_DATE}"
+    local final_tag_latest="${REGISTRY}/${BASE_TAG}:${os_name}-${os_version}-${gpu_type}-latest"
+
+    echo "Building stage-2 (final) ${os_name}-${os_version}-${gpu_type} using ${tarball_key}..."
+
+    docker build \
+        -f "${SCRIPT_DIR}/Dockerfile.stages" \
+        --target stage2 \
+        --build-arg BASE_IMAGE="${base_image}" \
+        --build-arg GPU_TYPE="${gpu_type}" \
+        --build-arg TARBALL_KEY="${tarball_key}" \
+        -t "${final_tag_date}" \
+        -t "${final_tag_latest}" \
+        "${SCRIPT_DIR}"
+
+    echo "Successfully built stage-2 ${final_tag_latest} (and ${final_tag_date})"
 }
 
 # Function to show usage
@@ -42,9 +84,12 @@ usage() {
     echo "  -h, --help      Show this help message"
     echo "  -p, --push      Push images to registry after building"
     echo "  -a, --all       Build all distributions (default)"
+    echo "  -g, --gpus      Comma-separated GPU list (gfx94X,gfx950,gfx110X,gfx120X). Default: all"
+    echo "      --skip-rocm Skip ROCm stages (2-4) and only build Stage 1"
     echo ""
     echo "Distributions:"
     echo "  ubuntu          Build Ubuntu 22.04 image"
+    echo "  ubuntu24        Build Ubuntu 24.04 image"
     echo "  rhel8           Build RHEL 8.8 image"
     echo "  rhel9           Build RHEL 9.5 image"
     echo "  sles            Build SLES 15.6 image"
@@ -59,6 +104,8 @@ usage() {
 PUSH_IMAGES=false
 BUILD_ALL=true
 DISTRIBUTIONS=()
+GPU_TYPES=("gfx94X" "gfx950" "gfx110X" "gfx120X")
+SKIP_ROCM=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -74,7 +121,18 @@ while [[ $# -gt 0 ]]; do
             BUILD_ALL=true
             shift
             ;;
-        ubuntu|rhel8|rhel9|sles)
+        -g|--gpus)
+            if [[ -z "${2:-}" ]]; then
+                echo "Error: --gpus requires a value"; exit 1
+            fi
+            IFS=',' read -r -a GPU_TYPES <<< "$2"
+            shift 2
+            ;;
+        --skip-rocm)
+            SKIP_ROCM=true
+            shift
+            ;;
+        ubuntu|ubuntu24|rhel8|rhel9|sles)
             BUILD_ALL=false
             DISTRIBUTIONS+=("$1")
             shift
@@ -89,7 +147,7 @@ done
 
 # Set default distributions if none specified
 if [[ ${BUILD_ALL} == true ]]; then
-    DISTRIBUTIONS=("ubuntu" "rhel8" "rhel9" "sles")
+    DISTRIBUTIONS=("ubuntu" "ubuntu24" "rhel8" "rhel9" "sles")
 fi
 
 # Verify Docker is running
@@ -103,21 +161,152 @@ echo "Building rocprofiler-sdk CI dependency images..."
 echo "Build date: ${BUILD_DATE}"
 echo "Git hash: ${GIT_HASH}"
 echo "Distributions: ${DISTRIBUTIONS[*]}"
+echo "GPUs: ${GPU_TYPES[*]}"
 echo ""
+
+# Resolve latest therock tarball keys once per GPU
+declare -A TARBALL_KEYS
+for gpu in "${GPU_TYPES[@]}"; do
+    echo "Resolving latest tarball for ${gpu}..."
+    key=$(get_latest_tarball_key "${gpu}")
+    if [[ -z "${key}" || "${key}" == "null" ]]; then
+        echo "Error: Could not resolve tarball for ${gpu}"; exit 1
+    fi
+    TARBALL_KEYS["${gpu}"]="${key}"
+    echo "${gpu} -> ${key}"
+done
 
 for dist in "${DISTRIBUTIONS[@]}"; do
     case $dist in
         ubuntu)
-            build_image "Dockerfile.ubuntu-22.04" "ubuntu" "22.04"
+            build_stage1_image "Dockerfile.ubuntu-22.04" "ubuntu" "22.04"
+            if [[ ${SKIP_ROCM} == false ]]; then
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker build \
+                      -f "${SCRIPT_DIR}/Dockerfile.stages" \
+                      --build-arg BASE_IMAGE="${REGISTRY}/${BASE_TAG}:ubuntu-22.04-latest" \
+                      --build-arg GPU_TYPE="${gpu}" \
+                      --build-arg TARBALL_KEY="${TARBALL_KEYS["${gpu}"]}" \
+                      --build-arg ROCM_SYSTEMS_REF="${ROCM_SYSTEMS_REF:-develop}" \
+                      --build-arg ROCM_SYSTEMS_REV="${ROCM_SYSTEMS_REV:-}" \
+                      --build-arg BUILD_ROCPROFILER_REGISTER="${BUILD_ROCPROFILER_REGISTER:-true}" \
+                      --build-arg BUILD_ROCR_RUNTIME="${BUILD_ROCR_RUNTIME:-true}" \
+                      --build-arg BUILD_AQLPROFILE="${BUILD_AQLPROFILE:-true}" \
+                      --build-arg ROCDECODE_REF="${ROCDECODE_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCDECODE_REV="${ROCDECODE_REV:-}" \
+                      --build-arg ROCJPEG_REF="${ROCJPEG_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCJPEG_REV="${ROCJPEG_REV:-}" \
+                      --build-arg BUILD_ROCDECODE="${BUILD_ROCDECODE:-true}" \
+                      --build-arg BUILD_ROCJPEG="${BUILD_ROCJPEG:-true}" \
+                      -t "${REGISTRY}/${BASE_TAG}:ubuntu-22.04-${gpu}-${BUILD_DATE}" \
+                      -t "${REGISTRY}/${BASE_TAG}:ubuntu-22.04-${gpu}-latest" \
+                      "${SCRIPT_DIR}"
+                done
+            fi
+            ;;
+        ubuntu24)
+            build_stage1_image "Dockerfile.ubuntu-24.04" "ubuntu" "24.04"
+            if [[ ${SKIP_ROCM} == false ]]; then
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker build \
+                      -f "${SCRIPT_DIR}/Dockerfile.stages" \
+                      --build-arg BASE_IMAGE="${REGISTRY}/${BASE_TAG}:ubuntu-24.04-latest" \
+                      --build-arg GPU_TYPE="${gpu}" \
+                      --build-arg TARBALL_KEY="${TARBALL_KEYS["${gpu}"]}" \
+                      --build-arg ROCM_SYSTEMS_REF="${ROCM_SYSTEMS_REF:-develop}" \
+                      --build-arg ROCM_SYSTEMS_REV="${ROCM_SYSTEMS_REV:-}" \
+                      --build-arg BUILD_ROCPROFILER_REGISTER="${BUILD_ROCPROFILER_REGISTER:-true}" \
+                      --build-arg BUILD_ROCR_RUNTIME="${BUILD_ROCR_RUNTIME:-true}" \
+                      --build-arg BUILD_AQLPROFILE="${BUILD_AQLPROFILE:-true}" \
+                      --build-arg ROCDECODE_REF="${ROCDECODE_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCDECODE_REV="${ROCDECODE_REV:-}" \
+                      --build-arg ROCJPEG_REF="${ROCJPEG_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCJPEG_REV="${ROCJPEG_REV:-}" \
+                      --build-arg BUILD_ROCDECODE="${BUILD_ROCDECODE:-true}" \
+                      --build-arg BUILD_ROCJPEG="${BUILD_ROCJPEG:-true}" \
+                      -t "${REGISTRY}/${BASE_TAG}:ubuntu-24.04-${gpu}-${BUILD_DATE}" \
+                      -t "${REGISTRY}/${BASE_TAG}:ubuntu-24.04-${gpu}-latest" \
+                      "${SCRIPT_DIR}"
+                done
+            fi
             ;;
         rhel8)
-            build_image "Dockerfile.rhel-8.8" "rhel" "8.8"
+            build_stage1_image "Dockerfile.rhel-8.8" "rhel" "8.8"
+            if [[ ${SKIP_ROCM} == false ]]; then
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker build \
+                      -f "${SCRIPT_DIR}/Dockerfile.stages" \
+                      --build-arg BASE_IMAGE="${REGISTRY}/${BASE_TAG}:rhel-8.8-latest" \
+                      --build-arg GPU_TYPE="${gpu}" \
+                      --build-arg TARBALL_KEY="${TARBALL_KEYS["${gpu}"]}" \
+                      --build-arg ROCM_SYSTEMS_REF="${ROCM_SYSTEMS_REF:-develop}" \
+                      --build-arg ROCM_SYSTEMS_REV="${ROCM_SYSTEMS_REV:-}" \
+                      --build-arg BUILD_ROCPROFILER_REGISTER="${BUILD_ROCPROFILER_REGISTER:-true}" \
+                      --build-arg BUILD_ROCR_RUNTIME="${BUILD_ROCR_RUNTIME:-true}" \
+                      --build-arg BUILD_AQLPROFILE="${BUILD_AQLPROFILE:-true}" \
+                      --build-arg ROCDECODE_REF="${ROCDECODE_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCDECODE_REV="${ROCDECODE_REV:-}" \
+                      --build-arg ROCJPEG_REF="${ROCJPEG_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCJPEG_REV="${ROCJPEG_REV:-}" \
+                      --build-arg BUILD_ROCDECODE="${BUILD_ROCDECODE:-true}" \
+                      --build-arg BUILD_ROCJPEG="${BUILD_ROCJPEG:-true}" \
+                      -t "${REGISTRY}/${BASE_TAG}:rhel-8.8-${gpu}-${BUILD_DATE}" \
+                      -t "${REGISTRY}/${BASE_TAG}:rhel-8.8-${gpu}-latest" \
+                      "${SCRIPT_DIR}"
+                done
+            fi
             ;;
         rhel9)
-            build_image "Dockerfile.rhel-9.5" "rhel" "9.5"
+            build_stage1_image "Dockerfile.rhel-9.5" "rhel" "9.5"
+            if [[ ${SKIP_ROCM} == false ]]; then
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker build \
+                      -f "${SCRIPT_DIR}/Dockerfile.stages" \
+                      --build-arg BASE_IMAGE="${REGISTRY}/${BASE_TAG}:rhel-9.5-latest" \
+                      --build-arg GPU_TYPE="${gpu}" \
+                      --build-arg TARBALL_KEY="${TARBALL_KEYS["${gpu}"]}" \
+                      --build-arg ROCM_SYSTEMS_REF="${ROCM_SYSTEMS_REF:-develop}" \
+                      --build-arg ROCM_SYSTEMS_REV="${ROCM_SYSTEMS_REV:-}" \
+                      --build-arg BUILD_ROCPROFILER_REGISTER="${BUILD_ROCPROFILER_REGISTER:-true}" \
+                      --build-arg BUILD_ROCR_RUNTIME="${BUILD_ROCR_RUNTIME:-true}" \
+                      --build-arg BUILD_AQLPROFILE="${BUILD_AQLPROFILE:-true}" \
+                      --build-arg ROCDECODE_REF="${ROCDECODE_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCDECODE_REV="${ROCDECODE_REV:-}" \
+                      --build-arg ROCJPEG_REF="${ROCJPEG_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCJPEG_REV="${ROCJPEG_REV:-}" \
+                      --build-arg BUILD_ROCDECODE="${BUILD_ROCDECODE:-true}" \
+                      --build-arg BUILD_ROCJPEG="${BUILD_ROCJPEG:-true}" \
+                      -t "${REGISTRY}/${BASE_TAG}:rhel-9.5-${gpu}-${BUILD_DATE}" \
+                      -t "${REGISTRY}/${BASE_TAG}:rhel-9.5-${gpu}-latest" \
+                      "${SCRIPT_DIR}"
+                done
+            fi
             ;;
         sles)
-            build_image "Dockerfile.sles-15.6" "sles" "15.6"
+            build_stage1_image "Dockerfile.sles-15.6" "sles" "15.6"
+            if [[ ${SKIP_ROCM} == false ]]; then
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker build \
+                      -f "${SCRIPT_DIR}/Dockerfile.stages" \
+                      --build-arg BASE_IMAGE="${REGISTRY}/${BASE_TAG}:sles-15.6-latest" \
+                      --build-arg GPU_TYPE="${gpu}" \
+                      --build-arg TARBALL_KEY="${TARBALL_KEYS["${gpu}"]}" \
+                      --build-arg ROCM_SYSTEMS_REF="${ROCM_SYSTEMS_REF:-develop}" \
+                      --build-arg ROCM_SYSTEMS_REV="${ROCM_SYSTEMS_REV:-}" \
+                      --build-arg BUILD_ROCPROFILER_REGISTER="${BUILD_ROCPROFILER_REGISTER:-true}" \
+                      --build-arg BUILD_ROCR_RUNTIME="${BUILD_ROCR_RUNTIME:-true}" \
+                      --build-arg BUILD_AQLPROFILE="${BUILD_AQLPROFILE:-true}" \
+                      --build-arg ROCDECODE_REF="${ROCDECODE_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCDECODE_REV="${ROCDECODE_REV:-}" \
+                      --build-arg ROCJPEG_REF="${ROCJPEG_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCJPEG_REV="${ROCJPEG_REV:-}" \
+                      --build-arg BUILD_ROCDECODE="${BUILD_ROCDECODE:-true}" \
+                      --build-arg BUILD_ROCJPEG="${BUILD_ROCJPEG:-true}" \
+                      -t "${REGISTRY}/${BASE_TAG}:sles-15.6-${gpu}-${BUILD_DATE}" \
+                      -t "${REGISTRY}/${BASE_TAG}:sles-15.6-${gpu}-latest" \
+                      "${SCRIPT_DIR}"
+                done
+            fi
             ;;
         *)
             echo "Warning: Unknown distribution '$dist', skipping..."
@@ -129,24 +318,48 @@ done
 if [[ ${PUSH_IMAGES} == true ]]; then
     echo ""
     echo "Pushing images to registry..."
-    
+
     for dist in "${DISTRIBUTIONS[@]}"; do
         case $dist in
             ubuntu)
                 docker push "${REGISTRY}/${BASE_TAG}:ubuntu-22.04-${BUILD_DATE}"
                 docker push "${REGISTRY}/${BASE_TAG}:ubuntu-22.04-latest"
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker push "${REGISTRY}/${BASE_TAG}:ubuntu-22.04-${gpu}-${BUILD_DATE}"
+                    docker push "${REGISTRY}/${BASE_TAG}:ubuntu-22.04-${gpu}-latest"
+                done
+                ;;
+            ubuntu24)
+                docker push "${REGISTRY}/${BASE_TAG}:ubuntu-24.04-${BUILD_DATE}"
+                docker push "${REGISTRY}/${BASE_TAG}:ubuntu-24.04-latest"
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker push "${REGISTRY}/${BASE_TAG}:ubuntu-24.04-${gpu}-${BUILD_DATE}"
+                    docker push "${REGISTRY}/${BASE_TAG}:ubuntu-24.04-${gpu}-latest"
+                done
                 ;;
             rhel8)
                 docker push "${REGISTRY}/${BASE_TAG}:rhel-8.8-${BUILD_DATE}"
                 docker push "${REGISTRY}/${BASE_TAG}:rhel-8.8-latest"
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker push "${REGISTRY}/${BASE_TAG}:rhel-8.8-${gpu}-${BUILD_DATE}"
+                    docker push "${REGISTRY}/${BASE_TAG}:rhel-8.8-${gpu}-latest"
+                done
                 ;;
             rhel9)
                 docker push "${REGISTRY}/${BASE_TAG}:rhel-9.5-${BUILD_DATE}"
                 docker push "${REGISTRY}/${BASE_TAG}:rhel-9.5-latest"
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker push "${REGISTRY}/${BASE_TAG}:rhel-9.5-${gpu}-${BUILD_DATE}"
+                    docker push "${REGISTRY}/${BASE_TAG}:rhel-9.5-${gpu}-latest"
+                done
                 ;;
             sles)
                 docker push "${REGISTRY}/${BASE_TAG}:sles-15.6-${BUILD_DATE}"
                 docker push "${REGISTRY}/${BASE_TAG}:sles-15.6-latest"
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker push "${REGISTRY}/${BASE_TAG}:sles-15.6-${gpu}-${BUILD_DATE}"
+                    docker push "${REGISTRY}/${BASE_TAG}:sles-15.6-${gpu}-latest"
+                done
                 ;;
         esac
     done
@@ -156,11 +369,12 @@ echo ""
 echo "Build completed successfully!"
 echo ""
 echo "Available images:"
-docker images | grep "${REGISTRY}/${BASE_TAG}" | head -10
+docker images | grep "${REGISTRY}/${BASE_TAG}" | head -20
 
 echo ""
-echo "To use these images in CI, update your workflow files to use:"
-echo "  ${REGISTRY}/${BASE_TAG}:ubuntu-22.04-latest"
-echo "  ${REGISTRY}/${BASE_TAG}:rhel-8.8-latest"
-echo "  ${REGISTRY}/${BASE_TAG}:rhel-9.5-latest"
-echo "  ${REGISTRY}/${BASE_TAG}:sles-15.6-latest"
+echo "To use these images in CI, update your workflow files to use (examples):"
+echo "  ${REGISTRY}/${BASE_TAG}:ubuntu-22.04-gfx94X-latest"
+echo "  ${REGISTRY}/${BASE_TAG}:ubuntu-24.04-gfx94X-latest"
+echo "  ${REGISTRY}/${BASE_TAG}:rhel-8.8-gfx110X-latest"
+echo "  ${REGISTRY}/${BASE_TAG}:rhel-9.5-gfx110X-latest"
+echo "  ${REGISTRY}/${BASE_TAG}:sles-15.6-gfx120X-latest"
