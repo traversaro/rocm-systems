@@ -74,7 +74,6 @@ def parse_arguments(args=None):
 %(prog)s, e.g.
 
     $ rocprofv3-avail [<rocprofv3-avail-option> ...]
-    $ rocprofv3-avail -- avail-hw-counters
 
 """
 
@@ -197,6 +196,10 @@ def get_number_columns(max_name_len):
 
 def list_basic_agent(args, list_counters):
     def print_agent_counter(counters):
+        if len(counters) == 0:
+            msg = "No PMC counters supported"
+            print("{:30}\n".format(msg))
+            return
         names_len = [len(counter.name) for counter in counters]
         names = [
             "{name:{width}}".format(name=counter.name, width=max(names_len))
@@ -268,6 +271,10 @@ def info_pc_sampling(args):
 
 def listing(args):
     def print_agent_counter(counters):
+        if len(counters) == 0:
+            msg = "No PMC counters supported"
+            print("{:30}\n".format(msg))
+            return
         names_len = [len(counter.name) for counter in counters]
         names = [
             "{name:{width}}".format(name=counter.name, width=max(names_len))
