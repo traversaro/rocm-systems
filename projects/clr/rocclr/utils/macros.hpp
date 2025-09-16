@@ -49,7 +49,9 @@
 #endif /*DEBUG && RELEASE*/
 
 #ifdef DEBUG
+#ifndef DEBUG_ONLY
 #define DEBUG_ONLY(x) x
+#endif
 #define RELEASE_ONLY(x)
 #define IS_DEBUG true
 #else  // !DEBUG
