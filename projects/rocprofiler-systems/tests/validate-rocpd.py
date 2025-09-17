@@ -116,7 +116,7 @@ def validate_table(cursor, rule, tables):
         bool: True if the table passes all validation checks, False otherwise.
 
     Returns:
-        bool: True if table is found in the databas and if all validation queries pass,
+        bool: True if table is found in the database and if all validation queries pass,
               False if any validation fails or matching table not found in database.
     """
 
