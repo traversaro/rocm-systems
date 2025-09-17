@@ -26,10 +26,7 @@
 #
 # -------------------------------------------------------------------------------------- #
 
-set(_rocpd_environment
-    "${_base_environment}"
-    "ROCPROFSYS_USE_ROCPD=true"
-)
+set(_rocpd_environment "${_base_environment}" "ROCPROFSYS_USE_ROCPD=true")
 
 rocprofiler_systems_add_test(
     NAME transpose
@@ -163,7 +160,7 @@ if(${ENABLE_ROCPD_TEST})
     )
 
     rocprofiler_systems_add_validation_test(
-        NAME transpose-rocpd-sampling    
+        NAME transpose-rocpd-sampling
         ROCPD_FILE "rocpd.db"
         ARGS --validation-rules
         "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/validation_rules.json"
