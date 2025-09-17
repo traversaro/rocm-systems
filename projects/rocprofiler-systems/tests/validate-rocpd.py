@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+
+# Copyright (c) Advanced Micro Devices, Inc.
+# SPDX-License-Identifier: MIT
+
 import argparse
 import os
 import sys
@@ -85,7 +90,7 @@ def print_help():
 
         # Validate database with custom rules file
         {os.path.basename(__file__)} --database my_profile.db -r custom_rules.json
-        
+
         # Validate database with multiple rules files
         {os.path.basename(__file__)} --database my_profile.db -r validation_rules.json amd_smi_rules.json
 
@@ -235,7 +240,7 @@ def load_validation_rules(validation_rules):
     """
     import json
     all_rules = []
-    
+
     for rules_file in validation_rules:
         try:
             rules_path = Path(rules_file)
@@ -274,12 +279,12 @@ def load_validation_rules(validation_rules):
         except Exception as e:
             print(f"Error loading rules file: {e}")
             return []
-    
+
     if not all_rules:
         print("Warning: No validation rules loaded from any file")
     else:
         print(f"Total rules loaded: {len(all_rules)}")
-    
+
     return all_rules
 
 
