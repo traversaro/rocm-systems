@@ -1171,7 +1171,7 @@ function(ROCPROFILER_SYSTEMS_ADD_VALIDATION_TEST)
     cmake_parse_arguments(
         TEST
         ""
-        "NAME;TIMEOUT;TIMEMORY_METRIC;TIMEMORY_FILE;PERFETTO_METRIC;PERFETTO_FILE"
+        "NAME;TIMEOUT;TIMEMORY_METRIC;TIMEMORY_FILE;PERFETTO_METRIC;PERFETTO_FILE;ROCPD_FILE"
         "ENVIRONMENT;LABELS;PROPERTIES;PASS_REGEX;FAIL_REGEX;SKIP_REGEX;DEPENDS;EXIST_FILES;ARGS"
         ${ARGN}
     )
@@ -1204,7 +1204,7 @@ function(ROCPROFILER_SYSTEMS_ADD_VALIDATION_TEST)
 
     if(NOT TEST_PASS_REGEX)
         set(TEST_PASS_REGEX
-            "rocprof-sys-tests-output/${TEST_NAME}/(${TEST_TIMEMORY_FILE}|${TEST_PERFETTO_FILE}) validated"
+            "rocprof-sys-tests-output/${TEST_NAME}/(${TEST_TIMEMORY_FILE}|${TEST_PERFETTO_FILE}|${TEST_ROCPD_FILE}) validated"
         )
     endif()
 
@@ -1241,6 +1241,18 @@ function(ROCPROFILER_SYSTEMS_ADD_VALIDATION_TEST)
                 -t /opt/trace_processor/bin/trace_processor_shell
             WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
         )
+    endif()
+
+    if(TEST_ROCPD_FILE)
+        add_test(
+            NAME validate-${TEST_NAME}-rocpd
+            COMMAND
+                ${ROCPROFSYS_VALIDATION_PYTHON}
+                ${CMAKE_CURRENT_LIST_DIR}/validate-rocpd.py -db
+                ${PROJECT_BINARY_DIR}/rocprof-sys-tests-output/${TEST_NAME}/${TEST_ROCPD_FILE}
+                ${TEST_ARGS}
+
+            WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
     endif()
 
     list(APPEND TEST_ENVIRONMENT "ROCPROFSYS_CI_TIMEOUT=${TEST_TIMEOUT}")
