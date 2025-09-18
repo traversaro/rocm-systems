@@ -1,0 +1,366 @@
+{
+  "required_tables": [
+{
+  "commit": "Validation rules for hip_api",
+  "name": "events_args",
+  "required_columns": [
+    "event_id", "category", "stack_id", "parent_stack_id", "correlation_id"
+  ],
+  "validation_queries": [
+    {
+      "description": "Verify that 'rocm_hip-api' appears in category at least 1500 times in table events_args",
+      "query": "SELECT COUNT(*) FROM events_args WHERE category = 'rocm_hip_api';",
+      "expected_result": 1500,
+      "comparison": "greater_than",
+      "error_message": "'rocm_hip-api' category entries are fewer than expected in events_args"
+    },
+    {
+      "description": "Check for missing category entries",
+      "query": "SELECT COUNT(*) FROM events_args WHERE category IS NULL OR TRIM(category) = '';",
+      "expected_result": 0,
+      "comparison": "equals",
+      "error_message": "Empty or NULL category entries found in events_args"
+    }
+
+  ]
+}
+,
+   {
+     "commit": "Validation rules for hip_api",
+      "name": "regions",
+      "required_columns": [
+        "id", "guid", "category", "name"
+       ],
+      "validation_queries": [
+        {
+          "description": "Verify that 'rocm_hip-api' appears in category at least 500 times in table regions",
+          "query": "SELECT COUNT(*) FROM regions WHERE category = 'rocm_hip_api';",
+          "expected_result": 500,
+          "comparison": "greater_than",
+          "error_message": "'rocm_hip-api' category entries are fewer than expected in regions"
+        },
+        {
+          "description": "Check for any NULL values in the 'name' column of regions",
+          "query": "SELECT COUNT(*) FROM regions WHERE name IS NULL;",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "NULL entries found in the name column of regions"
+        }
+      ]
+    },
+     {
+      "commit": "Validation rule for hip_api",
+      "name": "rocpd_string",
+      "required_columns": ["id", "guid", "string"],
+      "validation_queries": [
+        {
+          "description": "Verify that 'rocm_hip_api' string is present in the table",
+          "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_hip_api%';",
+          "expected_result": 1,
+          "comparison": "greater_than",
+          "error_message": "'rocm_hip_api' string not found in the table rocpd_string"
+        },
+          {
+          "description": "Verify that 'rocm_hsa_api' string is present in the table",
+          "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_hsa_api%';",
+          "expected_result": 1,
+          "comparison": "greater_than",
+          "error_message": "'rocm_hsa_api' string not found in the table rocpd_string"
+        }
+
+      ]
+    },
+    {
+  "commit": "Validation rule for hip_compiler_api",
+  "name": "rocpd_string",
+  "required_columns": ["id", "guid", "string"],
+  "validation_queries": [
+    {
+      "description": "Verify that '__hipRegisterFatBinary' string is present in the table",
+      "query": "SELECT COUNT(*) FROM rocpd_string WHERE string = '__hipRegisterFatBinary';",
+      "expected_result": 1,
+      "comparison": "equals",
+      "error_message": "'__hipRegisterFatBinary' string not found in the table rocpd_string"
+    },
+     {
+      "description": "Verify that '__hipRegisterFunction' string is present in the table",
+      "query": "SELECT COUNT(*) FROM rocpd_string WHERE string = '__hipRegisterFunction';",
+      "expected_result": 1,
+      "comparison": "equals",
+      "error_message": "'__hipRegisterFunction' string not found in the table rocpd_string"
+    },
+    {
+      "description": "Verify that '__hipPopCallConfiguration' string is present in the table",
+      "query": "SELECT COUNT(*) FROM rocpd_string WHERE string = '__hipPopCallConfiguration';",
+      "expected_result": 1,
+      "comparison": "equals",
+      "error_message": "'__hipPopCallConfiguration' string not found in the table rocpd_string"
+    },
+     {
+      "description": "Verify that '__hipPushCallConfiguration' string is present in the table",
+      "query": "SELECT COUNT(*) FROM rocpd_string WHERE string = '__hipPushCallConfiguration';",
+      "expected_result": 1,
+      "comparison": "equals",
+      "error_message": "'__hipPushCallConfiguration' string not found in the table rocpd_string"
+    }
+
+
+  ]
+},
+{
+  "commit": "Validation rule for rocm_hsa_api",
+  "name": "events_args",
+  "required_columns": [
+    "event_id",
+    "category",
+    "stack_id"
+    ],
+  "validation_queries":
+  [
+    {
+      "description": "Ensure 'rocm_hsa_api' string appears at least 1000 times in 'category'",
+      "query": "SELECT COUNT(*) FROM events_args WHERE category LIKE '%rocm_hsa_api%';",
+      "expected_result": 1000,
+      "comparison": "greater_than",
+      "error_message": "'rocm_hsa_api' string appears fewer than 1000 times in category column"
+    },
+    {
+       "description": "Check that stack_id is never NULL",
+      "query": "SELECT COUNT(*) FROM events_args WHERE stack_id IS NULL;",
+      "expected_result": 0,
+      "comparison": "equals",
+      "error_message": "stack_id column contains NULL values in events_args view"
+
+    }
+  ]
+},
+{
+  "commit": "Validation rule for HSA_CORE_API ",
+  "name": "events_args",
+  "required_columns": [
+    "event_id",
+    "category",
+    "stack_id",
+    "arg_type"
+  ],
+  "validation_queries": [
+
+    {
+      "description": "Ensure 'hsa_agent_info_t' string appears more than 50 times in 'arg_type'",
+      "query": "SELECT COUNT(*) FROM events_args WHERE arg_type LIKE '%hsa_agent_info_t%';",
+      "expected_result": 50,
+      "comparison": "greater_than",
+      "error_message": "'hsa_agent_info_t' string appears fewer than 50 times in arg_type column"
+    },
+    {
+      "description": "Check that stack_id is never NULL",
+      "query": "SELECT COUNT(*) FROM events_args WHERE stack_id IS NULL;",
+      "expected_result": 0,
+      "comparison": "equals",
+      "error_message": "stack_id column contains NULL values in events_args view"
+    },
+    {
+      "description": "Ensure at least 1 row exists in the view",
+      "query": "SELECT COUNT(*) FROM events_args;",
+      "expected_result": 0,
+      "comparison": "greater_than",
+      "error_message": "events_args view is empty"
+    }
+  ]
+},
+{
+  "commit": "Validation rule for HSA_CORE_API ",
+  "name": "region_args",
+  "required_columns": [
+    "id",
+    "guid",
+    "nid",
+    "pid",
+    "type",
+    "name",
+    "value"
+  ],
+  "validation_queries": [
+    {
+      "description": "Ensure 'hsa_agent_info_t' string appears more than 50 times in 'type' column",
+      "query": "SELECT COUNT(*) FROM region_args WHERE type LIKE '%hsa_agent_info_t%';",
+      "expected_result": 50,
+      "comparison": "greater_than",
+      "error_message": "'hsa_agent_info_t' string appears fewer than 50 times in type column"
+    }
+  ]
+},
+{
+  "commit": "Validation rule for HSA_CORE_API ",
+  "name": "regions",
+  "required_columns": [
+    "id",
+    "guid",
+    "category",
+    "name"
+   ],
+  "validation_queries": [
+    {
+      "description": "Ensure 'hsa_agent_get_info' string appears more than 50 times in 'name' column",
+      "query": "SELECT COUNT(*) FROM regions WHERE name LIKE '%hsa_agent_get_info%';",
+      "expected_result": 50,
+      "comparison": "greater_than",
+      "error_message": "'hsa_agent_get_info' string appears fewer than 50 times in category column"
+    },
+
+{
+      "description": "Ensure 'hsa_system_get_major_extension_table' string is present at least once in 'name' column",
+      "query": "SELECT COUNT(*) FROM regions WHERE name LIKE '%hsa_system_get_major_extension_table%';",
+      "expected_result": 0,
+      "comparison": "greater_than",
+      "error_message": "'hsa_system_get_major_extension_table' string not found in name column"
+    }
+
+  ]
+},
+{
+  "commit": "Validation rule for hsa_amd_ext_api",
+  "name": "regions",
+  "required_columns": [
+    "id",
+    "guid",
+    "category",
+    "name"
+
+
+  ],
+  "validation_queries": [
+    {
+      "description": "Ensure 'hsa_amd_agent_memory_pool_get_info' string appears more than 1 times in 'name' column",
+      "query": "SELECT COUNT(*) FROM regions WHERE name LIKE '%hsa_amd_agent_memory_pool_get_info%';",
+      "expected_result": 1,
+      "comparison": "greater_than",
+      "error_message": "'hsa_amd_agent_memory_pool_get_info' string appears fewer than 1 times in name column"
+    },
+    {
+      "description": "Ensure at least 1 row exists in the view",
+      "query": "SELECT COUNT(*) FROM regions;",
+      "expected_result": 0,
+      "comparison": "greater_than",
+      "error_message": "regions view is empty"
+    },
+    {
+      "description": "Ensure all durations are non-negative",
+      "query": "SELECT COUNT(*) FROM regions WHERE duration < 0;",
+      "expected_result": 0,
+      "comparison": "equals",
+      "error_message": "Some rows in regions view have negative duration values"
+    }
+  ]
+}
+,
+{
+  "commit": "Validation rule for hsa_amd_ext_api",
+  "name": "region_args",
+  "required_columns": [
+    "id",
+    "guid",
+    "nid",
+    "pid",
+    "type",
+    "name",
+    "value"
+  ],
+  "validation_queries": [
+    {
+      "description": "Ensure 'hsa_amd_memory_pool_info_t' string appears more than 1 times in 'type' column",
+      "query": "SELECT COUNT(*) FROM region_args WHERE type LIKE '%hsa_amd_memory_pool_info_t%';",
+      "expected_result": 1,
+      "comparison": "greater_than",
+      "error_message": "'hsa_amd_memory_pool_info_t' string appears fewer than 1 times in type column"
+    }
+
+  ]
+},
+{
+      "commit": "Validation rules for memory_allocations",
+      "name": "memory_allocations",
+      "required_columns": [
+        "id", "guid", "category", "nid", "pid", "tid", "start", "end", "duration", "type", "level", "agent_name"
+      ],
+      "validation_queries": [
+        {
+          "description": "Check that all IDs are not NULL",
+          "query": "SELECT COUNT(*) FROM memory_allocations WHERE id IS NULL;",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "NULL entries found in the id column of memory_allocations"
+        },
+        {
+          "description": "Verify that 'rocm_memory_allocate' appears more than 1 times in category",
+          "query": "SELECT COUNT(*) FROM memory_allocations WHERE category LIKE '%rocm_memory_allocate%';",
+          "expected_result": 1,
+          "comparison": "greater_than",
+          "error_message": "'rocm_memory_allocate' string appears fewer than 1 times in category column of memory_allocations"
+        }
+      ]
+    },
+     {
+      "name": "rocpd_string",
+      "required_columns": [
+        "id", "guid", "string"
+      ],
+      "validation_queries": [
+        {
+          "description": "Verify that 'rocm_memory_allocate' is present in the string column",
+          "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_memory_allocate%';",
+          "expected_result": 0,
+          "comparison": "greater_than",
+          "error_message": "'rocm_memory_allocate' string not found in the string column of rocpd_string"
+        }
+      ]
+    },
+     {
+      "commit": "Validation rules for memory_copies",
+      "name": "rocpd_string",
+      "required_columns": [
+        "id", "guid", "string"
+      ],
+      "validation_queries": [
+       {
+          "description": "Verify that 'rocm_memory_copy' is present in the string column",
+          "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_memory_copy%';",
+          "expected_result": 0,
+          "comparison": "greater_than",
+          "error_message": "'rocm_memory_copy' string not found in the string column of rocpd_string"
+        },
+        {
+          "description": "Verify that 'MEMORY_COPY_DEVICE_TO_HOST' is present in the string column",
+          "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%MEMORY_COPY_DEVICE_TO_HOST%';",
+          "expected_result": 0,
+          "comparison": "greater_than",
+          "error_message": "'MEMORY_COPY_DEVICE_TO_HOST' string not found in the string column of rocpd_string"
+        }
+      ]
+    },
+     {
+      "commit": "Validation rules for memory_copies",
+      "name": "memory_copies",
+      "required_columns": [
+        "id", "guid", "category", "nid", "pid", "tid", "start", "end"
+      ],
+      "validation_queries": [
+        {
+          "description": "Verify that 'rocm_memory_copy' appears more than 10 times in category",
+          "query": "SELECT COUNT(*) FROM memory_copies WHERE category LIKE '%rocm_memory_copy%';",
+          "expected_result": 10,
+          "comparison": "greater_than",
+          "error_message": "'rocm_memory_copy' string appears fewer than 10 times in category column of memory_copies"
+        },
+        {
+          "description": "Check that all IDs are not NULL",
+          "query": "SELECT COUNT(*) FROM memory_copies WHERE id IS NULL;",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "NULL entries found in the id column of memory_copies"
+        }
+      ]
+    }
+  ]
+
+}

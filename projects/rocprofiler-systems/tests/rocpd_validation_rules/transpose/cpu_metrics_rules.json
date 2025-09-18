@@ -1,0 +1,121 @@
+{
+  "required_tables": [
+    {
+      "name": "pmc_info",
+      "required_columns": [
+        "id", "guid", "nid", "pid", "agent_abs_index",
+        "is_constant", "is_derived", "name",
+        "description", "block", "expression"
+      ],
+      "validation_queries": [
+        {
+          "description": "Check for missing PMC names",
+          "query": "SELECT COUNT(*) FROM rocpd_info_pmc WHERE name IS NULL OR name = ''",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "PMC entries are missing a name"
+        },
+        {
+          "description": "Validate agent absolute index is non-negative",
+          "query": "SELECT COUNT(*) FROM rocpd_info_agent WHERE absolute_index < 0",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "Negative absolute_index found in agent metadata"
+        },
+        {
+          "description": "Check derived PMCs have expressions",
+          "query": "SELECT COUNT(*) FROM rocpd_info_pmc WHERE is_derived = 1 AND (expression IS NULL OR expression = '')",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "Derived PMC missing valid expression"
+        },
+        {
+          "description": "Validate description presence",
+          "query": "SELECT COUNT(*) FROM rocpd_info_pmc WHERE description IS NULL OR description = ''",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "PMC entries missing description field"
+        }
+      ]
+    },
+     {
+      "name": "rocpd_pmc_event",
+      "required_columns": [
+        "id", "guid", "event_id", "pmc_id", "value", "extdata"
+      ],
+      "validation_queries": [
+        {
+          "description": "Check for NULL values in 'id'",
+          "query": "SELECT COUNT(*) FROM rocpd_pmc_event WHERE id IS NULL",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "NULL value found in 'id' column"
+        },
+        {
+          "description": "Check for NULL values in 'guid' where guid count > 3000",
+          "query": "SELECT COUNT(*) FROM rocpd_pmc_event WHERE guid IS NULL AND (SELECT COUNT(*) FROM rocpd_pmc_event WHERE guid = rocpd_pmc_event.guid) > 3000",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "NULL 'guid' found for guid values with more than 3000 occurrences"
+        },
+        {
+          "description": "Check for NULL values in 'event_id'",
+          "query": "SELECT COUNT(*) FROM rocpd_pmc_event WHERE event_id IS NULL",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "NULL value found in 'event_id' column"
+        },
+        {
+          "description": "Check for NULL values in 'pmc_id'",
+          "query": "SELECT COUNT(*) FROM rocpd_pmc_event WHERE pmc_id IS NULL",
+          "expected_result": 0,
+          "comparison": "equals",
+          "error_message": "NULL value found in 'pmc_id' column"
+        }
+      ]
+    },
+    {
+  "name": "rocpd_sample",
+  "required_columns": [
+    "id", "guid", "track_id", "timestamp", "event_id"
+  ],
+  "validation_queries": [
+    {
+      "description": "Check for NULL values in 'id'",
+      "query": "SELECT COUNT(*) FROM rocpd_sample WHERE id IS NULL",
+      "expected_result": 0,
+      "comparison": "equals",
+      "error_message": "NULL value found in 'id' column"
+    },
+    {
+      "description": "Check for NULL values in 'guid' where guid count > 3000",
+      "query": "SELECT COUNT(*) FROM rocpd_sample WHERE guid IS NULL AND (SELECT COUNT(*) FROM rocpd_sample WHERE guid = rocpd_sample.guid) > 3000",
+      "expected_result": 0,
+      "comparison": "equals",
+      "error_message": "NULL 'guid' found for guid values with more than 3000 occurrences"
+    },
+    {
+      "description": "Check for NULL values in 'track_id'",
+      "query": "SELECT COUNT(*) FROM rocpd_sample WHERE track_id IS NULL",
+      "expected_result": 0,
+      "comparison": "equals",
+      "error_message": "NULL value found in 'track_id' column"
+    },
+    {
+      "description": "Check for NULL values in 'timestamp'",
+      "query": "SELECT COUNT(*) FROM rocpd_sample WHERE timestamp IS NULL",
+      "expected_result": 0,
+      "comparison": "equals",
+      "error_message": "NULL value found in 'timestamp' column"
+    },
+    {
+      "description": "Check for NULL values in 'event_id'",
+      "query": "SELECT COUNT(*) FROM rocpd_sample WHERE event_id IS NULL",
+      "expected_result": 0,
+      "comparison": "equals",
+      "error_message": "NULL value found in 'event_id' column"
+    }
+  ]
+}
+  ]
+}
