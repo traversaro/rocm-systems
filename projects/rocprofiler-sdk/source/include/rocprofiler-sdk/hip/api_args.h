@@ -3323,6 +3323,14 @@ typedef union rocprofiler_hip_api_args_t
         unsigned int* count;
         hipLibrary_t  library;
     } hipLibraryGetKernelCount;
+    struct
+    {
+        const char*                      symbol;
+        void**                           pfn;
+        int                              hipVersion;
+        uint64_t                         flags;
+        hipDriverProcAddressQueryResult* symbolStatus;
+    } hipGetProcAddress_spt;
 #endif
 } rocprofiler_hip_api_args_t;
 
