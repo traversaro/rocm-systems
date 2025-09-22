@@ -348,11 +348,10 @@ HSAKMT_STATUS KFDBaseComponentTest::KFDTestMultiGPU(Test_Function test_function,
     int i, j;
     std::vector<int> gpuNodes;
 
-    if (!gpu_indices.empty()) {
+    if (!gpu_indices.empty()) 
         gpuNodes = m_NodeInfo.GetSelectedGpuNodes(gpu_indices);
-    } else {
+    else
         gpuNodes = m_NodeInfo.GetNodesWithGPU();
-    }
 
     KFDTEST_GPUPARAMETERS kfdtest_GpuParameters[gpu_num];
     KFDTEST_PARAMETERS kfdTest_Parameters[gpu_num];
