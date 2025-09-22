@@ -36,7 +36,6 @@ ENV TARBALL_KEY=${TARBALL_KEY}
 # Install ROCm/AMDGPU repos and prerequisite ROCm packages (per-distro), plus awscli
 RUN set -euo pipefail; \
     if [ -f /etc/debian_version ]; then \
-      cp /etc/apt/sources.list /etc/apt/sources.list.bak_$(date +%F_%T) && sed -i '$d' /etc/apt/sources.list && \
       apt-get update && \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         curl wget gpg ca-certificates tar gzip && \

@@ -1,5 +1,5 @@
 # Dockerfile for rocprofiler-sdk CI dependencies - Ubuntu 22.04
-FROM docker.io/rocm/rocprofiler-private:ubuntu-22.04
+FROM ubuntu:22.04
 SHELL ["/bin/bash","-lc"]
 
 # Set environment variables for non-interactive installs

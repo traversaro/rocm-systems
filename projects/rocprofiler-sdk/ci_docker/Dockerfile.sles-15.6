@@ -1,5 +1,5 @@
 # Dockerfile for rocprofiler-sdk CI dependencies - SLES 15.6
-FROM docker.io/rocm/rocprofiler-private:sles-15.6
+FROM registry.suse.com/suse/sle15:15.7
 
 # Install core dependencies using zypper
 RUN zypper refresh && zypper install -y \

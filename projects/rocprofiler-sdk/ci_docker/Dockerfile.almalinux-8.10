@@ -1,5 +1,5 @@
 # Dockerfile for rocprofiler-sdk CI dependencies - AlmaLinux 8.10
-FROM docker.io/rocm/rocprofiler-private:almalinux-8.10
+FROM almalinux:8.10
 
 RUN rm -rf /etc/yum.repos.d/rocm* /etc/yum.repos.d/amd* /etc/yum.repos.d/mkmartifactory*
 
