@@ -92,12 +92,12 @@ usage() {
     echo "  ubuntu-22.04    Build Ubuntu 22.04 image"
     echo "  ubuntu-24.04    Build Ubuntu 24.04 image"
     echo "  almalinux-8.10 Build AlmaLinux 8.10 image"
-    echo "  rhel-10         Build RHEL 10.0 image"
+    echo "  almalinux-10         Build RHEL 10.0 image"
     echo "  sles-15.6       Build SLES 15.6 image"
     echo ""
     echo "Examples:"
     echo "  $0 --all                      # Build all distributions"
-    echo "  $0 ubuntu-22.04 rhel-10      # Build only Ubuntu 22.04 and RHEL 10"
+    echo "  $0 ubuntu-22.04 almalinux-10      # Build only Ubuntu 22.04 and RHEL 10"
     echo "  $0 --push ubuntu-22.04       # Build and push Ubuntu 22.04 image"
 }
 
@@ -138,7 +138,7 @@ while [[ $# -gt 0 ]]; do
             SKIP_MISSING_TARBALLS=true
             shift
             ;;
-        ubuntu-22.04|ubuntu-24.04|almalinux-8.10|rhel-10|sles-15.6)
+        ubuntu-22.04|ubuntu-24.04|almalinux-8.10|almalinux-10|sles-15.6)
             BUILD_ALL=false
             DISTRIBUTIONS+=("$1")
             shift
@@ -153,7 +153,7 @@ done
 
 # Set default distributions if none specified
 if [[ ${BUILD_ALL} == true ]]; then
-    DISTRIBUTIONS=("ubuntu-22.04" "ubuntu-24.04" "almalinux-8.10" "rhel-10" "sles-15.6")
+    DISTRIBUTIONS=("ubuntu-22.04" "ubuntu-24.04" "almalinux-8.10" "almalinux-10" "sles-15.6")
 fi
 
 # Verify Docker is running
@@ -228,11 +228,11 @@ for dist in "${DISTRIBUTIONS[@]}"; do
                 done
             fi
             ;;
-        rhel-10)
-            build_stage1_image "Dockerfile.rhel-10" "rhel" "10"
+        almalinux-10)
+            build_stage1_image "Dockerfile.almalinux-10" "rhel" "10"
             if [[ ${SKIP_ROCM} == false ]]; then
                 for gpu in "${GPU_TYPES[@]}"; do
-                    build_stage2_image "rhel-10" "${gpu}"
+                    build_stage2_image "almalinux-10" "${gpu}"
                 done
             fi
             ;;
@@ -281,12 +281,12 @@ if [[ ${PUSH_IMAGES} == true ]]; then
                     docker push "${REGISTRY}/${BASE_TAG}:almalinux-8.10-${gpu}-latest"
                 done
                 ;;
-            rhel-10)
-                docker push "${REGISTRY}/${BASE_TAG}:rhel-10-${BUILD_DATE}"
-                docker push "${REGISTRY}/${BASE_TAG}:rhel-10-latest"
+            almalinux-10)
+                docker push "${REGISTRY}/${BASE_TAG}:almalinux-10-${BUILD_DATE}"
+                docker push "${REGISTRY}/${BASE_TAG}:almalinux-10-latest"
                 for gpu in "${GPU_TYPES[@]}"; do
-                    docker push "${REGISTRY}/${BASE_TAG}:rhel-10-${gpu}-${BUILD_DATE}"
-                    docker push "${REGISTRY}/${BASE_TAG}:rhel-10-${gpu}-latest"
+                    docker push "${REGISTRY}/${BASE_TAG}:almalinux-10-${gpu}-${BUILD_DATE}"
+                    docker push "${REGISTRY}/${BASE_TAG}:almalinux-10-${gpu}-latest"
                 done
                 ;;
             sles-15.6)
@@ -312,5 +312,5 @@ echo "To use these images in CI, update your workflow files to use (examples):"
 echo "  ${REGISTRY}/${BASE_TAG}:ubuntu-22.04-gfx94X-latest"
 echo "  ${REGISTRY}/${BASE_TAG}:ubuntu-24.04-gfx94X-latest"
 echo "  ${REGISTRY}/${BASE_TAG}:almalinux-8.10-gfx94X-latest"
-echo "  ${REGISTRY}/${BASE_TAG}:rhel-10-gfx110X-latest"
+echo "  ${REGISTRY}/${BASE_TAG}:almalinux-10-gfx110X-latest"
 echo "  ${REGISTRY}/${BASE_TAG}:sles-15.6-gfx120X-latest"

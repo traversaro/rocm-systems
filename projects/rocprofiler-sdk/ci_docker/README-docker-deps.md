@@ -17,8 +17,8 @@ Base: `docker.io/rocm/rocprofiler-private:ubuntu-24.04`
 ### AlmaLinux 8.10 (`Dockerfile.almalinux-8.10`)
 Base: `docker.io/rocm/rocprofiler-private:almalinux-8.10`
 
-### RHEL 10 (`Dockerfile.rhel-10`)
-Base: `docker.io/rocm/rocprofiler-private:rhel-10`
+### RHEL 10 (`Dockerfile.almalinux-10`)
+Base: `docker.io/rocm/rocprofiler-private:almalinux-10`
 
 ### SLES 15.6 (`Dockerfile.sles-15.6`)
 Base: `docker.io/rocm/rocprofiler-private:sles-15.6`
@@ -42,7 +42,7 @@ All stage-1 images include:
 Examples:
 - `docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest`
 - `docker.io/rocm/rocprofiler-private:ubuntu-24.04-gfx94X-latest`
-- `docker.io/rocm/rocprofiler-private:rhel-10-gfx110X-20250115`
+- `docker.io/rocm/rocprofiler-private:almalinux-10-gfx110X-20250115`
 
 ## Building Images
 
@@ -53,7 +53,7 @@ Examples:
 projects/rocprofiler-sdk/ci_docker/docker-build.sh --all
 
 # Build specific distributions
-projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu-22.04 rhel-10
+projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu-22.04 almalinux-10
 
 # Limit GPUs (choose any of: gfx94X,gfx950,gfx110X,gfx120X)
 projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu-22.04 --gpus gfx94X
@@ -77,7 +77,7 @@ Distributions you can pass positionally (one or more):
 - **ubuntu-22.04** (22.04)
 - **ubuntu-24.04** (24.04)
 - **almalinux-8.10** (8.10)
-- **rhel-10** (10.0)
+- **almalinux-10** (10.0)
 - **sles-15.6** (15.6)
 
 Examples:
