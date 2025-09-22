@@ -123,8 +123,8 @@ EOS
 RUN chmod +x /usr/local/bin/restore-submodules-cache.sh
 
 # Install Python requirements for rocprofiler-sdk
-RUN python3 -m pip install --upgrade pip && \
-    python3 -m pip install -r projects/rocprofiler-sdk/requirements.txt
+RUN python3 -m pip install --upgrade pip --break-system-packages && \
+    python3 -m pip install --break-system-packages -r projects/rocprofiler-sdk/requirements.txt
 
 # Set environment variables used by CI
 ENV GIT_DISCOVERY_ACROSS_FILESYSTEM=1

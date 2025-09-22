@@ -33,7 +33,6 @@ RUN dnf update -y && dnf install -y \
     bzip2 \
     xz \
     # Documentation tools (if available in RHEL repos)
-    doxygen \
     graphviz \
     && dnf clean all
 
