@@ -166,6 +166,9 @@ if(${ENABLE_ROCPD_TEST})
         "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/validation_rules.json"
         "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/default_rules.json"
         "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/amd_smi_rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/cpu_metrics_rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/timer_sampling_rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/SDK_metrics_rules.json"
         LABELS "rocprofiler"
     )
 endif()
