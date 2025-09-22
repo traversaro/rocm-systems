@@ -98,6 +98,7 @@ jobs:
           set-safe-directory: true
 
       - name: Init/Update submodules
+        working-directory: projects/rocprofiler-sdk
         run: git submodule update --init --recursive --jobs 16
 
       - name: Create Docs Directory

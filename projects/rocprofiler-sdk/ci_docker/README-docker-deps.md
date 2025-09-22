@@ -14,10 +14,10 @@ Base: `docker.io/rocm/rocprofiler-private:ubuntu-22.04`
 ### Ubuntu 24.04 (`Dockerfile.ubuntu-24.04`)
 Base: `docker.io/rocm/rocprofiler-private:ubuntu-24.04`
 
-### RHEL 8.8 (`Dockerfile.almalinux-8.10`)
+### AlmaLinux 8.10 (`Dockerfile.almalinux-8.10`)
 Base: `docker.io/rocm/rocprofiler-private:almalinux-8.10`
 
-### RHEL 9.5 (`Dockerfile.rhel-10`)
+### RHEL 10 (`Dockerfile.rhel-10`)
 Base: `docker.io/rocm/rocprofiler-private:rhel-10`
 
 ### SLES 15.6 (`Dockerfile.sles-15.6`)
@@ -41,24 +41,25 @@ All stage-1 images include:
 
 Examples:
 - `docker.io/rocm/rocprofiler-private:ubuntu-22.04-gfx94X-latest`
-- `docker.io/rocm/rocprofiler-private:rhel-9.5-gfx110X-20250115`
+- `docker.io/rocm/rocprofiler-private:ubuntu-24.04-gfx94X-latest`
+- `docker.io/rocm/rocprofiler-private:rhel-10-gfx110X-20250115`
 
 ## Building Images
 
 ### Using the Build Script (Recommended)
 
 ```bash
-# Build all distributions (Ubuntu 22.04/24.04, RHEL 8.8/9.5, SLES 15.6) and all GPUs
+# Build all distributions (Ubuntu 22.04/24.04, AlmaLinux 8.10, RHEL 10, SLES 15.6) and all GPUs
 projects/rocprofiler-sdk/ci_docker/docker-build.sh --all
 
 # Build specific distributions
-projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu rhel9
+projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu-22.04 rhel-10
 
 # Limit GPUs (choose any of: gfx94X,gfx950,gfx110X,gfx120X)
-projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu --gpus gfx94X
+projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu-22.04 --gpus gfx94X
 
 # Build and push to registry
-projects/rocprofiler-sdk/ci_docker/docker-build.sh --push ubuntu ubuntu24
+projects/rocprofiler-sdk/ci_docker/docker-build.sh --push ubuntu-22.04 ubuntu-24.04
 
 # Show help
 projects/rocprofiler-sdk/ci_docker/docker-build.sh --help
@@ -77,7 +78,7 @@ Distributions you can pass positionally (one or more):
 - **ubuntu-24.04** (24.04)
 - **almalinux-8.10** (8.10)
 - **rhel-10** (10.0)
-- **sles** (15.6)
+- **sles-15.6** (15.6)
 
 Examples:
 

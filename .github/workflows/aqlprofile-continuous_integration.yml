@@ -99,6 +99,8 @@ jobs:
         for i in python3 git cmake ctest gcc g++ gcov; do which-realpath $i; done
         cat /opt/rocm/.info/version
         ls -la
+        ls -la /opt/rocm
+        ls -la /opt/rocm/lib
         pwd
 
     - name: Configure, Build, and Test
