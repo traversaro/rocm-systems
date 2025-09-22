@@ -1,5 +1,5 @@
-# Dockerfile for rocprofiler-sdk CI dependencies - RHEL 9.5
-FROM docker.io/rocm/rocprofiler-private:rhel-9.5
+# Dockerfile for rocprofiler-sdk CI dependencies - AlmaLinux 8.10
+FROM docker.io/rocm/rocprofiler-private:almalinux-8.10
 
 # Install core dependencies using dnf
 RUN dnf update -y && dnf install -y \
@@ -32,16 +32,19 @@ RUN dnf update -y && dnf install -y \
     gzip \
     bzip2 \
     xz \
-    # Documentation tools
+    # Documentation tools (if available in RHEL repos)
     doxygen \
     graphviz \
     && dnf clean all
 
-# Try to enable a GCC toolset if available (skip if not available on this base)
-RUN set -e; \
-    dnf install -y gcc-toolset-12-gcc gcc-toolset-12-gcc-c++ || \
-    dnf install -y gcc-toolset-11-gcc gcc-toolset-11-gcc-c++ || true; \
-    dnf clean all || true
+# Enable GCC toolset 11 (RHEL development toolset)
+RUN dnf install -y gcc-toolset-11-gcc gcc-toolset-11-gcc-c++ && \
+    dnf clean all
+
+# Create symbolic links for GCC toolset 11 (matching CI setup)
+RUN ln -sf /opt/rh/gcc-toolset-11/root/usr/bin/gcc /usr/local/bin/gcc-11 && \
+    ln -sf /opt/rh/gcc-toolset-11/root/usr/bin/g++ /usr/local/bin/g++-11 && \
+    ln -sf /opt/rh/gcc-toolset-11/root/usr/bin/gcov /usr/local/bin/gcov-11
 
 # Install sccache (used in RHEL CI builds)
 RUN curl -L https://github.com/mozilla/sccache/releases/download/v0.7.4/sccache-v0.7.4-x86_64-unknown-linux-musl.tar.gz \
@@ -56,7 +59,9 @@ RUN python3 -m pip install --upgrade pip setuptools wheel
 # Install AWS CLI for later stages
 RUN python3 -m pip install -U awscli
 
-# Do not force PATH to a toolset that may not exist; rely on system GCC
+# Set environment variables for GCC toolset
+ENV PATH="/opt/rh/gcc-toolset-11/root/usr/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/opt/rh/gcc-toolset-11/root/usr/lib64:/opt/rh/gcc-toolset-11/root/usr/lib:${LD_LIBRARY_PATH}"
 
 # Build newer Git from source (align with Dockerfile.ci approach)
 RUN set -euo pipefail; \
@@ -98,8 +103,8 @@ set -euo pipefail
 TARGET_DIR="${1:-/github/workspace}"
 ARCHIVE="/opt/rocprofiler-submodules-cache.tar.gz"
 if [ -f "$ARCHIVE" ]; then
-  mkdir -p "$TARGET_DIR"
-  tar -xzf "$ARCHIVE" -C "$TARGET_DIR"
+    mkdir -p "$TARGET_DIR"
+    tar -xzf "$ARCHIVE" -C "$TARGET_DIR"
 fi
 EOS
 
