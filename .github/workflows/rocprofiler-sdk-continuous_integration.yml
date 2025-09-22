@@ -317,7 +317,7 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ 'mi325' ]
-        os: [ 'rhel-8.8', 'rhel-9.5', 'sles-15.6' ]
+        os: [ 'almalinux-8.10', 'rhel-10', 'sles-15.6' ]
         build-type: [ 'RelWithDebInfo' ]
         ci-flags: [ '' ]
     runs-on: linux-mi325-1gpu-ossci-rocm
@@ -368,14 +368,6 @@ jobs:
       - name: Init/Update submodules
         run: git submodule update --init --recursive --jobs 16
 
-      - name: Install Latest Nightly ROCm using TheRock Tarballs
-        shell: bash
-        working-directory: /tmp
-        run: |
-          tar -xf /opt/rocm-gfx94X.tar.gz -C ${{ env.ROCM_PATH }}-7.0.0
-          ln -s ${{ env.ROCM_PATH }}-7.0.0 ${{ env.ROCM_PATH }}
-          echo "ROCm installed to: ${{ env.ROCM_PATH }}"
-
       - name: Install requirements (venv)
         timeout-minutes: 10
         shell: bash
@@ -422,26 +414,6 @@ jobs:
           cmake --build build-rocprofiler-register --target all --parallel 16
           cmake --build build-rocprofiler-register --target install
           echo "✅ ROCProfiler-Register Installation complete!"
-
-      - name: Build and Install ROCR-Runtime
-        if: ${{ !contains(env.DISABLE_ROCR_BUILD, 'true') }}
-        shell: bash
-        working-directory: projects/rocr-runtime
-        run: |
-          python3 -m venv rocprofiler-sdk
-          source rocprofiler-sdk/bin/activate
-          export PATH=/opt/rh/gcc-toolset-11/root/usr/bin:$PATH
-          python3 -m pip install --upgrade pip
-          python3 -m pip install --upgrade cmake
-          echo "Install ROCR-Runtime..."
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_PREFIX_PATH='${{ env.ROCM_PATH }}-7.0.0;${{ env.ROCM_PATH }}-7.0.0/llvm' \
-            -DCMAKE_INSTALL_PREFIX=${{ env.ROCM_PATH }}-7.0.0 \
-            .
-          cmake --build build --target all --parallel 16
-          cmake --build build --target install
-          echo "✅ ROCR-Runtime Installation complete!"
 
       - name: Build and Install Aqlprofile
         shell: bash
@@ -537,14 +509,6 @@ jobs:
       GPU_RUNNER: ${{ matrix.runner }}
 
     steps:
-    - name: Install Latest Nightly ROCm
-      shell: bash
-      working-directory: /tmp
-      run: |
-        ls -lah /opt/
-        tar -xf /opt/rocm-gfx94X.tar.gz -C ${{ env.ROCM_PATH }}-7.0.0
-        ln -s ${{ env.ROCM_PATH }}-7.0.0 ${{ env.ROCM_PATH }}
-        echo "ROCm installed to: ${{ env.ROCM_PATH }}"
 
     - name: Clone ROCProfiler SDK & AQLProfile & ROCProfiler Register & ROCR-Runtime
       uses: actions/checkout@v5
@@ -635,23 +599,6 @@ jobs:
         cmake --build build-rocprofiler-register --target all --parallel 16
         cmake --build build-rocprofiler-register --target install
         echo "✅ ROCProfiler-Register Installation complete!"
-
-    - name: Build and Install ROCR-Runtime
-      if: ${{ !contains(env.DISABLE_ROCR_BUILD, 'true') }}
-      shell: bash
-      working-directory: projects/rocr-runtime
-      run: |
-        echo "Install ROCR-Runtime..."
-        cmake -B build \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_PREFIX_PATH='${{ env.ROCM_PATH }}-7.0.0;${{ env.ROCM_PATH }}-7.0.0/llvm' \
-            -DCMAKE_INSTALL_PREFIX=${{ env.ROCM_PATH }}-7.0.0 \
-            -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache \
-            .
-        cmake --build build --target all --parallel 16
-        cmake --build build --target install
-        echo "✅ ROCR-Runtime Installation complete!"
 
     - name: Build and Install Aqlprofile
       shell: bash
