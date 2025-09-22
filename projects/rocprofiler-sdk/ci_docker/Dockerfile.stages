@@ -36,6 +36,7 @@ ENV TARBALL_KEY=${TARBALL_KEY}
 # Install ROCm/AMDGPU repos and prerequisite ROCm packages (per-distro), plus awscli
 RUN set -euo pipefail; \
     if [ -f /etc/debian_version ]; then \
+      cp /etc/apt/sources.list /etc/apt/sources.list.bak_$(date +%F_%T) && sed -i '$d' /etc/apt/sources.list && \
       apt-get update && \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         curl wget gpg ca-certificates tar gzip && \
@@ -43,9 +44,9 @@ RUN set -euo pipefail; \
       mkdir -p /etc/apt/keyrings && \
       UBUNTU_CODENAME=$(source /etc/os-release && echo ${UBUNTU_CODENAME:-$VERSION_CODENAME}); \
       case "$UBUNTU_CODENAME" in \
-        jammy) AMDGPU_DEB_URL="https://repo.radeon.com/amdgpu-install/7.0.1/ubuntu/jammy/amdgpu-install_7.0.70000-1_all.deb" ;; \
-        noble) AMDGPU_DEB_URL="https://repo.radeon.com/amdgpu-install/7.0.1/ubuntu/noble/amdgpu-install_7.0.70000-1_all.deb" ;; \
-        *) AMDGPU_DEB_URL="https://repo.radeon.com/amdgpu-install/7.0.1/ubuntu/jammy/amdgpu-install_7.0.70000-1_all.deb" ;; \
+        jammy) AMDGPU_DEB_URL="https://repo.radeon.com/amdgpu-install/7.0/ubuntu/jammy/amdgpu-install_7.0.70000-1_all.deb" ;; \
+        noble) AMDGPU_DEB_URL="https://repo.radeon.com/amdgpu-install/7.0/ubuntu/noble/amdgpu-install_7.0.70000-1_all.deb" ;; \
+        *) AMDGPU_DEB_URL="https://repo.radeon.com/amdgpu-install/7.0/ubuntu/jammy/amdgpu-install_7.0.70000-1_all.deb" ;; \
       esac; \
       wget -N -P /tmp/ "$AMDGPU_DEB_URL" && \
       apt-get install -y /tmp/amdgpu-install_7.0.70000-1_all.deb && \
@@ -55,17 +56,17 @@ RUN set -euo pipefail; \
       dnf clean all || true; \
       dnf install -y perl-ExtUtils-MakeMaker python3-pip ca-certificates gzip tar || true; \
       if grep -qi 'VERSION_ID="8.10"' /etc/os-release; then \
-        echo -e "[ROCm-7.0.0]\nname=ROCm7.0.0\nbaseurl=https://repo.radeon.com/rocm/rhel8/7.0.1/main\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/yum.repos.d/rocm.repo; \
-        echo -e "[amdgpu]\nname=amdgpu\nbaseurl=https://repo.radeon.com/amdgpu/latest/rhel/8.10/main/x86_64/\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/yum.repos.d/amdgpu.repo; \
+        echo -e "[ROCm-7.0.0]\nname=ROCm7.0.0\nbaseurl=https://repo.radeon.com/rocm/rhel8/7.0/main\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/yum.repos.d/rocm.repo; \
+        echo -e "[amdgpu]\nname=amdgpu\nbaseurl=https://repo.radeon.com/amdgpu/7.0.1/rhel/8.10/main/x86_64/\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/yum.repos.d/amdgpu.repo; \
       else \
-        echo -e "[ROCm-7.0.0]\nname=ROCm7.0.0\nbaseurl=https://repo.radeon.com/rocm/rhel10/7.0.1/main\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/yum.repos.d/rocm.repo; \
+        echo -e "[ROCm-7.0.0]\nname=ROCm7.0.0\nbaseurl=https://repo.radeon.com/rocm/rhel10/7.0/main\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/yum.repos.d/rocm.repo; \
         echo -e "[amdgpu]\nname=amdgpu\nbaseurl=https://repo.radeon.com/amdgpu/7.0.1/rhel/10/main/x86_64/\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/yum.repos.d/amdgpu.repo; \
       fi; \
       dnf clean all; \
       dnf install -y rocm-openmp rocm-openmp-sdk rocm-llvm-devel hipify-clang libsqlite3x-devel elfutils-devel; \
       python3 -m pip install -U awscli; \
     else \
-      echo -e "[ROCm-7.0.0]\nname=ROCm7.0.0\nbaseurl=https://repo.radeon.com/rocm/zyp/7.0.1/main\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/zypp/repos.d/rocm.repo; \
+      echo -e "[ROCm-7.0.0]\nname=ROCm7.0.0\nbaseurl=https://repo.radeon.com/rocm/zyp/7.0/main\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/zypp/repos.d/rocm.repo; \
       echo -e "[amdgpu]\nname=amdgpu\nbaseurl=https://repo.radeon.com/amdgpu/7.0.1/sle/15.7/main/x86_64/\nenabled=1\npriority=50\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" > /etc/zypp/repos.d/amdgpu.repo; \
       zypper --gpg-auto-import-keys refresh || true; \
       zypper --non-interactive install -y python3-pip ca-certificates gzip tar rocm-openmp rocm-openmp-sdk rocm-llvm-devel hipify-clang sqlite3-devel || true; \
