@@ -86,6 +86,7 @@ usage() {
     echo "  -a, --all       Build all distributions (default)"
     echo "  -g, --gpus      Comma-separated GPU list (gfx94X,gfx950,gfx110X,gfx120X). Default: all"
     echo "      --skip-rocm Skip ROCm stages (2-4) and only build Stage 1"
+    echo "      --skip-missing-tarballs Skip GPU types that don't have available tarballs"
     echo ""
     echo "Distributions:"
     echo "  ubuntu-22.04    Build Ubuntu 22.04 image"
@@ -105,6 +106,7 @@ BUILD_ALL=true
 DISTRIBUTIONS=()
 GPU_TYPES=("gfx94X" "gfx950" "gfx110X" "gfx120X")
 SKIP_ROCM=false
+SKIP_MISSING_TARBALLS=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -129,6 +131,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-rocm)
             SKIP_ROCM=true
+            shift
+            ;;
+        --skip-missing-tarballs)
+            SKIP_MISSING_TARBALLS=true
             shift
             ;;
         ubuntu-22.04|almalinux-8.10|rhel-10|sles-15.6)
@@ -165,15 +171,37 @@ echo ""
 
 # Resolve latest therock tarball keys once per GPU
 declare -A TARBALL_KEYS
+AVAILABLE_GPUS=()
 for gpu in "${GPU_TYPES[@]}"; do
     echo "Resolving latest tarball for ${gpu}..."
     key=$(get_latest_tarball_key "${gpu}")
+    echo "Raw key result for ${gpu}: '${key}'"
     if [[ -z "${key}" || "${key}" == "null" ]]; then
-        echo "Error: Could not resolve tarball for ${gpu}"; exit 1
+        echo "Warning: Could not resolve tarball for ${gpu}"
+        if [[ ${SKIP_MISSING_TARBALLS} == false ]]; then
+            echo "Available tarballs in bucket:"
+            docker run --rm "${AWS_CLI_IMAGE}" \
+                s3api list-objects-v2 \
+                --bucket therock-nightly-tarball \
+                --no-sign-request \
+                --output json \
+                --query "Contents[].Key" | head -20
+            exit 1
+        else
+            echo "Skipping ${gpu} due to missing tarball"
+            continue
+        fi
     fi
     TARBALL_KEYS["${gpu}"]="${key}"
+    AVAILABLE_GPUS+=("${gpu}")
     echo "${gpu} -> ${key}"
 done
+
+# Update GPU_TYPES to only include available GPUs
+if [[ ${SKIP_MISSING_TARBALLS} == true ]]; then
+    GPU_TYPES=("${AVAILABLE_GPUS[@]}")
+    echo "Updated GPU list to available tarballs: ${GPU_TYPES[*]}"
+fi
 
 for dist in "${DISTRIBUTIONS[@]}"; do
     case $dist in
