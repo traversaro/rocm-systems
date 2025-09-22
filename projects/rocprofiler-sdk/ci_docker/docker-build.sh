@@ -175,6 +175,8 @@ declare -A TARBALL_KEYS
 AVAILABLE_GPUS=()
 for gpu in "${GPU_TYPES[@]}"; do
     echo "Resolving latest tarball for ${gpu}..."
+    sudo apt-get install -y python3-pip
+    python3 -m pip install --upgrade pip
     python3 -m pip install awscli
     key=$(get_latest_tarball_key "${gpu}")
     if [[ -z "${key}" || "${key}" == "null" ]]; then
