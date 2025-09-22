@@ -125,7 +125,7 @@ jobs:
       matrix:
         system: [
           {gpu: 'mi325', os: 'almalinux-8.10', build-type: 'RelWithDebInfo', container: ''},
-          {gpu: 'mi325', os: 'sles-15.6', build-type: 'RelWithDebInfo', container: ''}
+          {gpu: 'mi325', os: 'sles-15.7', build-type: 'RelWithDebInfo', container: ''}
         ]
 
     runs-on: linux-mi325-1gpu-ossci-rocm

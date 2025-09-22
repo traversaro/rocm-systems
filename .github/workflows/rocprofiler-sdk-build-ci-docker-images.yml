@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ 'ubuntu-22.04', 'ubuntu-24.04', 'almalinux-8.10', 'sles-15.6' ]
+        os: [ 'ubuntu-22.04', 'ubuntu-24.04', 'almalinux-8.10', 'sles-15.7' ]
         gpu: [ 'gfx94X', 'gfx110X', 'gfx120X' ]
     steps:
       - name: Checkout

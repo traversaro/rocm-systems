@@ -20,8 +20,8 @@ Base: `docker.io/rocm/rocprofiler-private:almalinux-8.10`
 ### RHEL 10 (`Dockerfile.almalinux-10`)
 Base: `docker.io/rocm/rocprofiler-private:almalinux-10`
 
-### SLES 15.6 (`Dockerfile.sles-15.6`)
-Base: `docker.io/rocm/rocprofiler-private:sles-15.6`
+### SLES 15.7 (`Dockerfile.sles-15.7`)
+Base: `docker.io/rocm/rocprofiler-private:sles-15.7`
 
 All stage-1 images include:
 - Build tools (gcc toolchains, clang, cmake), development libraries (elfutils, sqlite, libdrm, etc.)
@@ -49,7 +49,7 @@ Examples:
 ### Using the Build Script (Recommended)
 
 ```bash
-# Build all distributions (Ubuntu 22.04/24.04, AlmaLinux 8.10, RHEL 10, SLES 15.6) and all GPUs
+# Build all distributions (Ubuntu 22.04/24.04, AlmaLinux 8.10, RHEL 10, SLES 15.7) and all GPUs
 projects/rocprofiler-sdk/ci_docker/docker-build.sh --all
 
 # Build specific distributions
@@ -78,7 +78,7 @@ Distributions you can pass positionally (one or more):
 - **ubuntu-24.04** (24.04)
 - **almalinux-8.10** (8.10)
 - **almalinux-10** (10.0)
-- **sles-15.6** (15.6)
+- **sles-15.7** (15.7)
 
 Examples:
 

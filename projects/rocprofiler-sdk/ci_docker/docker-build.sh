@@ -93,7 +93,7 @@ usage() {
     echo "  ubuntu-24.04    Build Ubuntu 24.04 image"
     echo "  almalinux-8.10 Build AlmaLinux 8.10 image"
     echo "  almalinux-10         Build RHEL 10.0 image"
-    echo "  sles-15.6       Build SLES 15.6 image"
+    echo "  sles-15.7       Build SLES 15.7 image"
     echo ""
     echo "Examples:"
     echo "  $0 --all                      # Build all distributions"
@@ -138,7 +138,7 @@ while [[ $# -gt 0 ]]; do
             SKIP_MISSING_TARBALLS=true
             shift
             ;;
-        ubuntu-22.04|ubuntu-24.04|almalinux-8.10|almalinux-10|sles-15.6)
+        ubuntu-22.04|ubuntu-24.04|almalinux-8.10|almalinux-10|sles-15.7)
             BUILD_ALL=false
             DISTRIBUTIONS+=("$1")
             shift
@@ -153,7 +153,7 @@ done
 
 # Set default distributions if none specified
 if [[ ${BUILD_ALL} == true ]]; then
-    DISTRIBUTIONS=("ubuntu-22.04" "ubuntu-24.04" "almalinux-8.10" "almalinux-10" "sles-15.6")
+    DISTRIBUTIONS=("ubuntu-22.04" "ubuntu-24.04" "almalinux-8.10" "almalinux-10" "sles-15.7")
 fi
 
 # Verify Docker is running
@@ -236,11 +236,11 @@ for dist in "${DISTRIBUTIONS[@]}"; do
                 done
             fi
             ;;
-        sles-15.6)
-            build_stage1_image "Dockerfile.sles-15.6" "sles" "15.6"
+        sles-15.7)
+            build_stage1_image "Dockerfile.sles-15.7" "sles" "15.7"
             if [[ ${SKIP_ROCM} == false ]]; then
                 for gpu in "${GPU_TYPES[@]}"; do
-                    build_stage2_image "sles-15.6" "${gpu}"
+                    build_stage2_image "sles-15.7" "${gpu}"
                 done
             fi
             ;;
@@ -289,12 +289,12 @@ if [[ ${PUSH_IMAGES} == true ]]; then
                     docker push "${REGISTRY}/${BASE_TAG}:almalinux-10-${gpu}-latest"
                 done
                 ;;
-            sles-15.6)
-                docker push "${REGISTRY}/${BASE_TAG}:sles-15.6-${BUILD_DATE}"
-                docker push "${REGISTRY}/${BASE_TAG}:sles-15.6-latest"
+            sles-15.7)
+                docker push "${REGISTRY}/${BASE_TAG}:sles-15.7-${BUILD_DATE}"
+                docker push "${REGISTRY}/${BASE_TAG}:sles-15.7-latest"
                 for gpu in "${GPU_TYPES[@]}"; do
-                    docker push "${REGISTRY}/${BASE_TAG}:sles-15.6-${gpu}-${BUILD_DATE}"
-                    docker push "${REGISTRY}/${BASE_TAG}:sles-15.6-${gpu}-latest"
+                    docker push "${REGISTRY}/${BASE_TAG}:sles-15.7-${gpu}-${BUILD_DATE}"
+                    docker push "${REGISTRY}/${BASE_TAG}:sles-15.7-${gpu}-latest"
                 done
                 ;;
         esac
@@ -313,4 +313,4 @@ echo "  ${REGISTRY}/${BASE_TAG}:ubuntu-22.04-gfx94X-latest"
 echo "  ${REGISTRY}/${BASE_TAG}:ubuntu-24.04-gfx94X-latest"
 echo "  ${REGISTRY}/${BASE_TAG}:almalinux-8.10-gfx94X-latest"
 echo "  ${REGISTRY}/${BASE_TAG}:almalinux-10-gfx110X-latest"
-echo "  ${REGISTRY}/${BASE_TAG}:sles-15.6-gfx120X-latest"
+echo "  ${REGISTRY}/${BASE_TAG}:sles-15.7-gfx120X-latest"

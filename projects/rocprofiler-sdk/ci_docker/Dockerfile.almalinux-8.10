@@ -1,8 +1,6 @@
 # Dockerfile for rocprofiler-sdk CI dependencies - AlmaLinux 8.10
 FROM almalinux:8.10
 
-RUN rm -rf /etc/yum.repos.d/rocm* /etc/yum.repos.d/amd* /etc/yum.repos.d/mkmartifactory*
-
 # Install core dependencies using dnf
 RUN dnf update -y && dnf install -y \
     # Core build tools
