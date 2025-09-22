@@ -1,7 +1,7 @@
 # Dockerfile for rocprofiler-sdk CI dependencies - RHEL 10
 FROM docker.io/rocm/rocprofiler-private:rhel-10
 
-RUN rm -rf /etc/yum.repos.d/rocm* /etc/yum.repos.d/amd*
+RUN rm -rf /etc/yum.repos.d/rocm* /etc/yum.repos.d/amd* /etc/yum.repos.d/redhat-partner.repo
 
 # Install core dependencies using dnf
 RUN dnf update -y && dnf install -y \
