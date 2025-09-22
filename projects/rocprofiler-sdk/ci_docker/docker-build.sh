@@ -11,7 +11,6 @@ REGISTRY="docker.io/rocm"
 BASE_TAG="rocprofiler-private"
 BUILD_DATE=$(date -u +"%Y%m%d")
 GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-AWS_CLI_IMAGE="amazon/aws-cli:2.17.13"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Function to build and tag stage-1 (deps) image
@@ -38,9 +37,8 @@ build_stage1_image() {
 # Get latest therock tarball S3 key for a given GPU type (e.g., gfx94X)
 get_latest_tarball_key() {
     local gpu_type="$1"
-    # Use Dockerized AWS CLI to avoid host dependency; bucket is public
-    docker run --rm "${AWS_CLI_IMAGE}" \
-        s3api list-objects-v2 \
+    # Use native AWS CLI; bucket is public
+    aws s3api list-objects-v2 \
         --bucket therock-nightly-tarball \
         --no-sign-request \
         --output json \
@@ -177,13 +175,13 @@ declare -A TARBALL_KEYS
 AVAILABLE_GPUS=()
 for gpu in "${GPU_TYPES[@]}"; do
     echo "Resolving latest tarball for ${gpu}..."
+    python3 -m pip install awscli
     key=$(get_latest_tarball_key "${gpu}")
     if [[ -z "${key}" || "${key}" == "null" ]]; then
         echo "Warning: Could not resolve tarball for ${gpu}"
         if [[ ${SKIP_MISSING_TARBALLS} == false ]]; then
             echo "Available tarballs in bucket:"
-            docker run --rm "${AWS_CLI_IMAGE}" \
-                s3api list-objects-v2 \
+            aws s3api list-objects-v2 \
                 --bucket therock-nightly-tarball \
                 --no-sign-request \
                 --output json \

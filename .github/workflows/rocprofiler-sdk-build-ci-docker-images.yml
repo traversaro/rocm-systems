@@ -40,6 +40,13 @@ jobs:
           sparse-checkout: |
             projects/rocprofiler-sdk/ci_docker/
 
+      - name: Install AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+          aws --version
+
       - name: Login to Docker Hub
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
@@ -53,4 +60,4 @@ jobs:
           ROCJPEG_REF: develop
         run: |
           chmod +x projects/rocprofiler-sdk/ci_docker/docker-build.sh
-          projects/rocprofiler-sdk/ci_docker/docker-build.sh ${{ matrix.os }} --push --gpus ${{ matrix.gpu }}
+          projects/rocprofiler-sdk/ci_docker/docker-build.sh --push --gpus ${{ matrix.gpu }} --skip-missing-tarballs ${{ matrix.os }}
