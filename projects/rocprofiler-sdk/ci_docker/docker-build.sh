@@ -22,7 +22,7 @@ build_stage1_image() {
 
     echo "Building stage-1 (deps) ${os_name}-${os_version} image..."
 
-    docker build \
+    docker build --no-cache \
         -f "${SCRIPT_DIR}/${dockerfile}" \
         -t "${REGISTRY}/${BASE_TAG}:${os_name}-${os_version}-${BUILD_DATE}" \
         -t "${REGISTRY}/${BASE_TAG}:${os_name}-${os_version}-latest" \
@@ -137,7 +137,7 @@ while [[ $# -gt 0 ]]; do
             SKIP_MISSING_TARBALLS=true
             shift
             ;;
-        ubuntu-22.04|almalinux-8.10|rhel-10|sles-15.6)
+        ubuntu-22.04|ubuntu-24.04|almalinux-8.10|rhel-10|sles-15.6)
             BUILD_ALL=false
             DISTRIBUTIONS+=("$1")
             shift
@@ -152,7 +152,7 @@ done
 
 # Set default distributions if none specified
 if [[ ${BUILD_ALL} == true ]]; then
-    DISTRIBUTIONS=("ubuntu-22.04" "almalinux-8.10" "rhel-10" "sles-15.6")
+    DISTRIBUTIONS=("ubuntu-22.04" "ubuntu-24.04" "almalinux-8.10" "rhel-10" "sles-15.6")
 fi
 
 # Verify Docker is running
@@ -228,6 +228,32 @@ for dist in "${DISTRIBUTIONS[@]}"; do
                       --build-arg BUILD_ROCJPEG="${BUILD_ROCJPEG:-true}" \
                       -t "${REGISTRY}/${BASE_TAG}:ubuntu-22.04-${gpu}-${BUILD_DATE}" \
                       -t "${REGISTRY}/${BASE_TAG}:ubuntu-22.04-${gpu}-latest" \
+                      "${SCRIPT_DIR}"
+                done
+            fi
+            ;;
+        ubuntu-24.04)
+            build_stage1_image "Dockerfile.ubuntu-24.04" "ubuntu" "24.04"
+            if [[ ${SKIP_ROCM} == false ]]; then
+                for gpu in "${GPU_TYPES[@]}"; do
+                    docker build \
+                      -f "${SCRIPT_DIR}/Dockerfile.stages" \
+                      --build-arg BASE_IMAGE="${REGISTRY}/${BASE_TAG}:ubuntu-24.04-latest" \
+                      --build-arg GPU_TYPE="${gpu}" \
+                      --build-arg TARBALL_KEY="${TARBALL_KEYS["${gpu}"]}" \
+                      --build-arg ROCM_SYSTEMS_REF="${ROCM_SYSTEMS_REF:-develop}" \
+                      --build-arg ROCM_SYSTEMS_REV="${ROCM_SYSTEMS_REV:-}" \
+                      --build-arg BUILD_ROCPROFILER_REGISTER="${BUILD_ROCPROFILER_REGISTER:-true}" \
+                      --build-arg BUILD_ROCR_RUNTIME="${BUILD_ROCR_RUNTIME:-true}" \
+                      --build-arg BUILD_AQLPROFILE="${BUILD_AQLPROFILE:-true}" \
+                      --build-arg ROCDECODE_REF="${ROCDECODE_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCDECODE_REV="${ROCDECODE_REV:-}" \
+                      --build-arg ROCJPEG_REF="${ROCJPEG_REF:-release/rocm-rel-7.0}" \
+                      --build-arg ROCJPEG_REV="${ROCJPEG_REV:-}" \
+                      --build-arg BUILD_ROCDECODE="${BUILD_ROCDECODE:-true}" \
+                      --build-arg BUILD_ROCJPEG="${BUILD_ROCJPEG:-true}" \
+                      -t "${REGISTRY}/${BASE_TAG}:ubuntu-24.04-${gpu}-${BUILD_DATE}" \
+                      -t "${REGISTRY}/${BASE_TAG}:ubuntu-24.04-${gpu}-latest" \
                       "${SCRIPT_DIR}"
                 done
             fi
