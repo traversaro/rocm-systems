@@ -90,15 +90,8 @@ jobs:
       GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
       CORE_EXT_RUNNER: mi325
       GPU_RUNNER: ${{ matrix.system.gpu }}
-    steps:
-      - name: Install Latest Nightly ROCm
-        shell: bash
-        working-directory: /tmp
-        run: |
-          tar -xf /opt/rocm-${{ matrix.system.therock-s3 }}.tar.gz -C ${{ env.ROCM_PATH }}-7.0.0
-          ln -s ${{ env.ROCM_PATH }}-7.0.0 ${{ env.ROCM_PATH }}
-          echo "ROCm installed to: ${{ env.ROCM_PATH }}"
 
+    steps:
       - name: Clone ROCProfiler SDK & AQLProfile & ROCProfiler Register & ROCR-Runtime
         uses: actions/checkout@v5
         with:
@@ -106,7 +99,6 @@ jobs:
             projects/rocprofiler-sdk
             projects/aqlprofile
             projects/rocprofiler-register
-            projects/rocr-runtime
           submodules: false
           set-safe-directory: true
 
@@ -135,22 +127,6 @@ jobs:
       - name: Init/Update submodules
         run: git submodule update --init --recursive --jobs 16
 
-      - name: Clone ROCDecode
-        uses: actions/checkout@v5
-        with:
-          repository: 'ROCm/rocDecode'
-          ref: 'release/rocm-rel-7.0'
-          set-safe-directory: true
-          path: 'rocDecode'
-
-      - name: Clone ROCJPEG
-        uses: actions/checkout@v5
-        with:
-          repository: 'ROCm/rocJPEG'
-          ref: 'release/rocm-rel-7.0'
-          set-safe-directory: true
-          path: 'rocJPEG'
-
       - name: Install requirements
         timeout-minutes: 10
         shell: bash
@@ -177,32 +153,6 @@ jobs:
           max-size: 2G
           save: true
 
-      - name: Install Missing ROCm Dependencies
-        shell: bash
-        run: |
-          echo -e "Building & Installing ROCDecode..."
-          cmake -B build-rocdecode \
-            -DCMAKE_INSTALL_PREFIX=${{ env.ROCM_PATH }}-7.0.0 \
-            -DCMAKE_PREFIX_PATH=${{ env.ROCM_PATH }} \
-            -DCMAKE_CXX_COMPILER=${{ env.ROCM_PATH }}/bin/amdclang++ \
-            -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache \
-            ${GITHUB_WORKSPACE}/rocDecode
-          cmake --build build-rocdecode --target all --parallel 16
-          cmake --build build-rocdecode --target install
-          echo -e "ROCDecode Installed Successfully!"
-          echo -e "Building & Installing ROCJPEG..."
-          cmake -B build-rocjpeg \
-            -DCMAKE_INSTALL_PREFIX=${{ env.ROCM_PATH }}-7.0.0 \
-            -DCMAKE_PREFIX_PATH=${{ env.ROCM_PATH }} \
-            -DCMAKE_CXX_COMPILER=${{ env.ROCM_PATH }}/bin/amdclang++ \
-            -DCMAKE_C_COMPILER_LAUNCHER=/usr/bin/ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=/usr/bin/ccache \
-            ${GITHUB_WORKSPACE}/rocJPEG
-          cmake --build build-rocjpeg --target all --parallel 16
-          cmake --build build-rocjpeg --target install
-          echo -e "ROCJPEG Installed Successfully!"
-
       - name: Build and Install ROCProfiler-Register
         shell: bash
         working-directory: projects/rocprofiler-register
@@ -220,23 +170,6 @@ jobs:
           cmake --build build-rocprofiler-register --target all --parallel 16
           cmake --build build-rocprofiler-register --target install
           echo "✅ ROCProfiler-Register Installation complete!"
-
-      - name: Build and Install ROCR-Runtime
-        if: ${{ !contains(env.DISABLE_ROCR_BUILD, 'true') }}
-        shell: bash
-        working-directory: projects/rocr-runtime
-        run: |
-          export LD_LIBRARY_PATH=${{ env.ROCM_PATH }}/lib:${{ env.ROCM_PATH }}/llvm/lib:$LD_LIBRARY_PATH
-          export PATH=${{ env.ROCM_PATH }}/bin:${{ env.ROCM_PATH }}/llvm/bin:$PATH
-          echo "Install ROCR-Runtime..."
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_PREFIX_PATH='${{ env.ROCM_PATH }}-7.0.0;${{ env.ROCM_PATH }}-7.0.0/llvm' \
-            -DCMAKE_INSTALL_PREFIX=${{ env.ROCM_PATH }}-7.0.0 \
-            .
-          cmake --build build --target all --parallel 16
-          cmake --build build --target install
-          echo "✅ ROCR-Runtime Installation complete!"
 
       - name: Build and Install Aqlprofile
         shell: bash

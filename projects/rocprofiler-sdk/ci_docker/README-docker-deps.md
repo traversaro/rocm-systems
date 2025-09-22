@@ -14,11 +14,11 @@ Base: `docker.io/rocm/rocprofiler-private:ubuntu-22.04`
 ### Ubuntu 24.04 (`Dockerfile.ubuntu-24.04`)
 Base: `docker.io/rocm/rocprofiler-private:ubuntu-24.04`
 
-### RHEL 8.8 (`Dockerfile.rhel-8.8`)
-Base: `docker.io/rocm/rocprofiler-private:rhel-8.8`
+### RHEL 8.8 (`Dockerfile.almalinux-8.10`)
+Base: `docker.io/rocm/rocprofiler-private:almalinux-8.10`
 
-### RHEL 9.5 (`Dockerfile.rhel-9.5`)
-Base: `docker.io/rocm/rocprofiler-private:rhel-9.5`
+### RHEL 9.5 (`Dockerfile.rhel-10`)
+Base: `docker.io/rocm/rocprofiler-private:rhel-10`
 
 ### SLES 15.6 (`Dockerfile.sles-15.6`)
 Base: `docker.io/rocm/rocprofiler-private:sles-15.6`
@@ -73,10 +73,10 @@ projects/rocprofiler-sdk/ci_docker/docker-build.sh --help
 - **--skip-rocm**: Build only Stage 1 (skip Stages 2–4)
 
 Distributions you can pass positionally (one or more):
-- **ubuntu** (22.04)
-- **ubuntu24** (24.04)
-- **rhel8** (8.8)
-- **rhel9** (9.5)
+- **ubuntu-22.04** (22.04)
+- **ubuntu-24.04** (24.04)
+- **almalinux-8.10** (8.10)
+- **rhel-10** (10.0)
 - **sles** (15.6)
 
 Examples:
@@ -86,7 +86,7 @@ Examples:
 projects/rocprofiler-sdk/ci_docker/docker-build.sh --skip-rocm --all
 
 # Build Ubuntu 24.04 with a single GPU target
-projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu24 --gpus gfx94X
+projects/rocprofiler-sdk/ci_docker/docker-build.sh ubuntu-24.04 --gpus gfx94X
 ```
 
 The script will:

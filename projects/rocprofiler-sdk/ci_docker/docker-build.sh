@@ -22,7 +22,7 @@ build_stage1_image() {
 
     echo "Building stage-1 (deps) ${os_name}-${os_version} image..."
 
-    docker build --no-cache \
+    docker build \
         -f "${SCRIPT_DIR}/${dockerfile}" \
         -t "${REGISTRY}/${BASE_TAG}:${os_name}-${os_version}-${BUILD_DATE}" \
         -t "${REGISTRY}/${BASE_TAG}:${os_name}-${os_version}-latest" \
