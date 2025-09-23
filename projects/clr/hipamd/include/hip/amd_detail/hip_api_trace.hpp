@@ -1672,7 +1672,6 @@ struct HipDispatchTable {
   t_hipMemPrefetchAsync_v2 hipMemPrefetchAsync_v2_fn;
   t_hipMemAdvise_v2 hipMemAdvise_v2_fn;
   t_hipStreamGetId hipStreamGetId_fn;
-  t_hipModuleGetLoadingMode hipModuleGetLoadingMode_fn;
 
   // HIP_RUNTIME_API_TABLE_STEP_VERSION = 15
   t_hipLibraryLoadData hipLibraryLoadData_fn;
@@ -1680,6 +1679,7 @@ struct HipDispatchTable {
   t_hipLibraryUnload hipLibraryUnload_fn;
   t_hipLibraryGetKernel hipLibraryGetKernel_fn;
   t_hipLibraryGetKernelCount hipLibraryGetKernelCount_fn;
+  t_hipModuleGetLoadingMode hipModuleGetLoadingMode_fn;
 
   // DO NOT EDIT ABOVE!
   // HIP_RUNTIME_API_TABLE_STEP_VERSION == 15
