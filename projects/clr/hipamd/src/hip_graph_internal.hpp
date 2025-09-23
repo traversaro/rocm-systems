@@ -186,6 +186,17 @@ class GraphKernelArgManager : public amd::ReferenceCountedObject,
   using KernelArgImpl = device::Settings::KernelArgImpl;
 };
 
+// Add this before the GraphNode class (around line 188)
+struct BatchInfo {
+  size_t batch_id;              // Which batch contains this node
+  size_t start_index_in_batch;  // Start index of this node's packets in the batch
+  size_t end_index_in_batch;    // End index of this node's packets in the batch
+
+  BatchInfo() : batch_id(SIZE_MAX), start_index_in_batch(SIZE_MAX), end_index_in_batch(SIZE_MAX) {}
+  BatchInfo(size_t batch, size_t start, size_t end)
+    : batch_id(batch), start_index_in_batch(start), end_index_in_batch(end) {}
+};
+
 class GraphNode : public hipGraphNodeDOTAttribute {
  public:
   GraphNode(hipGraphNodeType type, const char* style = "", const char* shape = "",
@@ -462,6 +473,7 @@ class GraphNode : public hipGraphNodeDOTAttribute {
   }
   void SetDeviceId(int id) { dev_id_ = id; }
   int GetDeviceId() const { return dev_id_; }
+  BatchInfo& GetBatchInfo() { return batchInfo_; }
 
  protected:
   // Declare Graph and GraphExec as friends of node for simpler access to GraphNode fields
@@ -492,6 +504,7 @@ class GraphNode : public hipGraphNodeDOTAttribute {
   size_t kernargSegmentAlignment_ = 256;  //!< Kernel arg segment alignment
   int dev_id_;  //!< Device Id when node is created(dev id from capture stream/current device
                 //!< when explicitly added)
+  BatchInfo batchInfo_;  //!< Batch information
 };
 
 class GraphEventWaitNode : public GraphNode {
