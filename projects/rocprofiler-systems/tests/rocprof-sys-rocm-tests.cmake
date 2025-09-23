@@ -26,7 +26,11 @@
 #
 # -------------------------------------------------------------------------------------- #
 
-set(_rocpd_environment "${_base_environment}" "ROCPROFSYS_USE_ROCPD=true")
+set(_rocpd_environment
+    "${_base_environment}"
+    "ROCPROFSYS_ROCM_DOMAINS=hip_runtime_api,kernel_dispatch,memory_copy,memory_allocation,hsa_api"
+    "ROCPROFSYS_USE_ROCPD=true"
+)
 
 rocprofiler_systems_add_test(
     NAME transpose
