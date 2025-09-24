@@ -3290,10 +3290,10 @@ typedef union rocprofiler_hip_api_args_t
     {
         hipLibrary_t*      library;
         const void*        code;
-        hipJitOption**     jitOptions;
+        hipJitOption*      jitOptions;
         void**             jitOptionsValues;
         unsigned int       numJitOptions;
-        hipLibraryOption** libraryOptions;
+        hipLibraryOption*  libraryOptions;
         void**             libraryOptionValues;
         unsigned int       numLibraryOptions;
     } hipLibraryLoadData;
@@ -3301,10 +3301,10 @@ typedef union rocprofiler_hip_api_args_t
     {
         hipLibrary_t*      library;
         const char*        fileName;
-        hipJitOption**     jitOptions;
+        hipJitOption*      jitOptions;
         void**             jitOptionsValues;
         unsigned int       numJitOptions;
-        hipLibraryOption** libraryOptions;
+        hipLibraryOption*  libraryOptions;
         void**             libraryOptionValues;
         unsigned int       numLibraryOptions;
     } hipLibraryLoadFromFile;
