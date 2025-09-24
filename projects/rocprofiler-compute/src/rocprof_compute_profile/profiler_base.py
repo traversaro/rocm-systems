@@ -32,7 +32,6 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Optional, Union
 
-import numpy as np
 import pandas as pd
 import yaml
 
@@ -542,5 +541,5 @@ class RocProfCompute_Base:
         self._soc.post_profiling()
 
 
-def test_df_column_equality(df: pd.DataFrame) -> np.bool:
-    return df.eq(df.iloc[:, 0], axis=0).all(1).all()
+def test_df_column_equality(df: pd.DataFrame) -> bool:
+    return bool(df.eq(df.iloc[:, 0], axis=0).all(1).all())
