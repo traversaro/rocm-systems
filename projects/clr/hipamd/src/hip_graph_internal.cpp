@@ -427,6 +427,7 @@ hipError_t GraphExec::CaptureAndFormPacketsForGraph() {
       size_t capturedNodeCount = 0;
       while (j < topoOrder_.size() && topoOrder_[j]->GraphCaptureEnabled()) {
         auto& currentNode = topoOrder_[j];
+        auto currentBatchEndIndex = currentBatch.size();
         status = currentNode->CaptureAndFormPacket(GetKernelArgManager(), &currentBatch,
                                                              &currentKernelNames);
 
@@ -437,8 +438,8 @@ hipError_t GraphExec::CaptureAndFormPacketsForGraph() {
         // Mark this node as successfully captured
         nodeCaptureStatus_[j] = true;
         currentNode->GetBatchInfo().batch_id = packetBatches_.size();
-        currentNode->GetBatchInfo().start_index_in_batch = capturedNodeCount;
-        currentNode->GetBatchInfo().end_index_in_batch = capturedNodeCount + currentBatch.size();
+        currentNode->GetBatchInfo().start_index_in_batch = currentBatchEndIndex;
+        currentNode->GetBatchInfo().end_index_in_batch = currentBatch.size();
         ++j;
         ++capturedNodeCount;
       }
@@ -496,33 +497,53 @@ hipError_t GraphExec::CaptureAQLPackets() {
 hipError_t GraphExec::UpdateAQLPacket(hip::GraphNode* node) {
   hipError_t status = hipSuccess;
   if (max_streams_ == 1) {
-    BatchInfo batchInfo = node->GetBatchInfo();
+    BatchInfo& batchInfo = node->GetBatchInfo();
     std::vector<uint8_t*> currentBatch;
     std::vector<std::string> currentKernelNames;
     status = node->CaptureAndFormPacket(kernArgManager_, &currentBatch, &currentKernelNames);
+    if (status != hipSuccess) {
+      return status;
+    }
     // if no of packets are not changed.
-    if (currentBatch.size() == batchInfo.end_index_in_batch - batchInfo.start_index_in_batch) {
+    if (batchInfo.batch_id < packetBatches_.size() && 
+        currentBatch.size() == batchInfo.end_index_in_batch - batchInfo.start_index_in_batch) {
       for (size_t i = 0; i < currentBatch.size(); i++) {
-        packetBatches_[batchInfo.batch_id].packets[i] = currentBatch[i];
-        packetBatches_[batchInfo.batch_id].kernelNames[i] = currentKernelNames[i];
+        packetBatches_[batchInfo.batch_id].packets[batchInfo.start_index_in_batch + i] = currentBatch[i];
+        packetBatches_[batchInfo.batch_id].kernelNames[batchInfo.start_index_in_batch + i] = currentKernelNames[i];
       }
-    } else if (batchInfo.batch_id < SIZE_MAX) {
+    } else if (batchInfo.batch_id < packetBatches_.size()) {
       // remove existing packets of node from batch
       auto& batch = packetBatches_[batchInfo.batch_id];
       batch.packets.erase(batch.packets.begin() + batchInfo.start_index_in_batch,
                           batch.packets.begin() + batchInfo.end_index_in_batch);
       batch.kernelNames.erase(batch.kernelNames.begin() + batchInfo.start_index_in_batch,
-                              batch.kernelNames.begin() + batchInfo.end_index_in_batch);
+                              batch.kernelNames.begin() + batchInfo.end_index_in_batch); 
       // Insert new packets at the same position
       batch.packets.insert(batch.packets.begin() + batchInfo.start_index_in_batch,
                            currentBatch.begin(), currentBatch.end());
       batch.kernelNames.insert(batch.kernelNames.begin() + batchInfo.start_index_in_batch,
                                currentKernelNames.begin(), currentKernelNames.end());
-      // Update end index for the current node
+      // Update batch info for the current node
       batchInfo.end_index_in_batch = batchInfo.start_index_in_batch + currentBatch.size();
-    } else if (packetBatches_.empty()){ //if there is no previous record then append the new batch
-      packetBatches_.emplace_back(std::move(currentBatch), std::move(currentKernelNames),
-                                  currentBatch.size());
+      // Update batch info for subsequent nodes in the same batch
+      for (size_t i = 0; i < topoOrder_.size(); ++i) {
+        if (topoOrder_[i] != node) {
+          BatchInfo& otherBatchInfo = topoOrder_[i]->GetBatchInfo();
+          if (otherBatchInfo.batch_id == batchInfo.batch_id &&
+              otherBatchInfo.start_index_in_batch >= batchInfo.end_index_in_batch) {
+            // Adjust indices for nodes that come after the updated node in the same batch
+            size_t indexDiff = currentBatch.size() - (batchInfo.end_index_in_batch - batchInfo.start_index_in_batch);
+            otherBatchInfo.start_index_in_batch += indexDiff;
+            otherBatchInfo.end_index_in_batch += indexDiff;
+          }
+        }
+      }
+    } else {
+      // if there is no previous record or batch_id is invalid, append the new batch
+      packetBatches_.emplace_back(std::move(currentBatch), std::move(currentKernelNames), 1);
+      batchInfo.batch_id = packetBatches_.size() - 1;
+      batchInfo.start_index_in_batch = 0;
+      batchInfo.end_index_in_batch = currentBatch.size();
     }
   }
   return status;
