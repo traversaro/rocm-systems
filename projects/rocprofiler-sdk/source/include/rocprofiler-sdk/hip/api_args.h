@@ -3323,6 +3323,9 @@ typedef union rocprofiler_hip_api_args_t
         unsigned int* count;
         hipLibrary_t  library;
     } hipLibraryGetKernelCount;
+    struct {
+      hipModuleLoadingMode_t* mode;
+    } hipModuleGetLoadingMode;
 #endif
 } rocprofiler_hip_api_args_t;
 
