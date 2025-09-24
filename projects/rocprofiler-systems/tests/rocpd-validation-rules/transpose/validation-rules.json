@@ -21,11 +21,26 @@
                     "expected_result": 0,
                     "comparison": "greater_than",
                     "error_message": "No kernel calls found in summary"
+                },
+                {
+                    "description": "Check that we have transpose kernel captured",
+                    "query": "SELECT COUNT(*) as count FROM kernel_summary WHERE name LIKE 'transpose%'",
+                    "expected_result": 1,
+                    "comparison": "equals",
+                    "error_message": "No kernel calls found in summary"
+                },
+                {
+                    "description": "Check that we have predefined number of kernel calls",
+                    "query": "SELECT calls as num_calls FROM kernel_summary WHERE name LIKE 'transpose%'",
+                    "expected_result": 1000,
+                    "comparison": "equals",
+                    "error_message": "No kernel calls found in summary"
                 }
             ]
         },
         {
             "name": "kernels",
+            "min_rows": 1000,
             "required_columns": [
                 "id",
                 "category",
@@ -46,7 +61,7 @@
                 {
                     "description": "Check that we have kernel entries",
                     "query": "SELECT COUNT(*) as count FROM kernels",
-                    "expected_result": 0,
+                    "expected_result": 1000,
                     "comparison": "greater_than",
                     "error_message": "No kernel entries found"
                 },
@@ -56,12 +71,19 @@
                     "expected_result": 0,
                     "comparison": "equals",
                     "error_message": "Kernels with no active execution times found"
+                },
+                {
+                    "description": "Check that we have number of kernel entries as expected number of calls",
+                    "query": "SELECT COUNT(*) as count FROM kernels WHERE name LIKE 'transpose%'",
+                    "expected_result": 1000,
+                    "comparison": "equals",
+                    "error_message": "Mismatch in expected numbers of kernels entries"
                 }
             ]
         },
         {
             "name": "threads",
-            "min_rows": 0,
+            "min_rows": 3,
             "required_columns": [
                 "tid",
                 "start",

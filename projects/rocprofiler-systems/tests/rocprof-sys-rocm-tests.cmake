@@ -90,6 +90,12 @@ rocprofiler_systems_add_test(
     REWRITE_FAIL_REGEX "0 instrumented loops in procedure transpose"
 )
 
+# -------------------------------------------------------------------------------------- #
+#
+# ROCProfiler tests (counter collection)
+#
+# -------------------------------------------------------------------------------------- #
+
 if(ROCPROFSYS_USE_ROCM)
     set(NAVI_REGEX "gfx(10|11|12)[A-Fa-f0-9][A-Fa-f0-9]")
     rocprofiler_systems_get_gfx_archs(NAVI_DETECTED GFX_MATCH ${NAVI_REGEX} ECHO)
@@ -148,6 +154,12 @@ if(ROCPROFSYS_USE_ROCM)
     )
 endif()
 
+# -------------------------------------------------------------------------------------- #
+#
+# ROCpd tests
+#
+# -------------------------------------------------------------------------------------- #
+
 if(${ENABLE_ROCPD_TEST})
     rocprofiler_systems_add_test(
         SKIP_BASELINE SKIP_RUNTIME
@@ -167,12 +179,12 @@ if(${ENABLE_ROCPD_TEST})
         NAME transpose-rocpd-sampling
         ROCPD_FILE "rocpd.db"
         ARGS --validation-rules
-        "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/validation_rules.json"
-        "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/default_rules.json"
-        "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/amd_smi_rules.json"
-        "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/cpu_metrics_rules.json"
-        "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/timer_sampling_rules.json"
-        "${CMAKE_CURRENT_LIST_DIR}/rocpd_validation_rules/transpose/SDK_metrics_rules.json"
-        LABELS "rocprofiler"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/validation-rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/default-rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/amd-smi-rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/cpu-metrics-rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/timer-sampling-rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/SDK-metrics-rules.json"
+        LABELS "rocpd"
     )
 endif()
