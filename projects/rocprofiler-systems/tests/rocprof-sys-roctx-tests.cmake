@@ -110,4 +110,15 @@ if(${ENABLE_ROCPD_TEST})
         REWRITE_RUN_PASS_REGEX "rocpd.db"
         LABELS "roctx;rocpd"
     )
+
+    rocprofiler_systems_add_validation_test(
+        NAME roctx-api-rocpd-sampling
+        ROCPD_FILE "rocpd.db"
+        ARGS --validation-rules
+            "${CMAKE_CURRENT_LIST_DIR}/tests/rocpd-validation-rules/default-rules.json"
+            "${CMAKE_CURRENT_LIST_DIR}/tests/rocpd-validation-rules/roctx/amd-smi-rules.json"
+            "${CMAKE_CURRENT_LIST_DIR}/tests/rocpd-validation-rules/roctx/validation-rules.json"
+            "${CMAKE_CURRENT_LIST_DIR}/tests/rocpd-validation-rules/roctx/sdk-metrics-rules.json"
+        LABELS "roctx;rocpd"
+    )
 endif()
