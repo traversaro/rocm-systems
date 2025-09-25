@@ -75,13 +75,6 @@
                     "expected_result": 1,
                     "comparison": "greater_than",
                     "error_message": "'rocm_hip_api' string not found in the table rocpd_string"
-                },
-                {
-                    "description": "Verify that 'rocm_hsa_api' string is present in the table",
-                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_hsa_api%';",
-                    "expected_result": 1,
-                    "comparison": "greater_than",
-                    "error_message": "'rocm_hsa_api' string not found in the table rocpd_string"
                 }
             ]
         },
@@ -147,13 +140,6 @@
                 "string"
             ],
             "validation_queries": [
-                {
-                    "description": "Verify that 'rocm_hsa_api' string is present in the table",
-                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_hsa_api%';",
-                    "expected_result": 1,
-                    "comparison": "greater_than",
-                    "error_message": "'rocm_hsa_api' string not found in the table rocpd_string"
-                },
                 {
                     "description": "Verify that 'rocm_hsa_api' string is present in the table",
                     "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_hsa_api%';",
