@@ -9,10 +9,10 @@ Panel Config:
     Workgroup Size: The total number of work-items (or, threads) in each workgroup
       (or, block) launched as part of the kernel dispatch. In HIP, this is equivalent
       to the total block size.
-    Total Wavefronts: "The total number of wavefronts launched as part of the kernel\
-      \ dispatch. On AMD Instinct\u2122 CDNA\u2122 accelerators and GCN\u2122 GPUs,\
-      \ the wavefront size is always 64 work-items. Thus, the total number of wavefronts\
-      \ should be equivalent to the ceiling of grid size divided by 64."
+    Total Wavefronts: The total number of wavefronts launched as part of the kernel
+      dispatch.\ \ On AMD Instinct\u2122 CDNA\u2122 accelerators and GCN\u2122 GPUs,
+      the wavefront\ \ size is always 64 work-items. Thus, the total number of wavefronts
+      should\ \ be equivalent to the ceiling of grid size divided by 64.
     Saved Wavefronts: The total number of wavefronts saved at a context-save.
     Restored Wavefronts: The total number of wavefronts restored from a context-save.
     VGPRs: 'The number of architected vector general-purpose registers allocated for

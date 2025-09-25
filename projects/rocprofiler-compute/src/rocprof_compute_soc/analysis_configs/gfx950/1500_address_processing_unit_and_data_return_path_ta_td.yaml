@@ -9,8 +9,8 @@ Panel Config:
       from sending address requests further into the vL1D pipeline.
     Data Stall: Percent of the total CU cycles the address processor was stalled from
       sending write/atomic data further into the vL1D pipeline.
-    "Data-Processor \u2192 Address Stall": Percent of total CU cycles the address
-      processor was stalled waiting to send command data to the data processor.
+    Data-Processor \u2192 Address Stall: Percent of total CU cycles the address processor
+      was stalled waiting to send command data to the data processor.
     Total Instructions: The total number of memory instructions executed by the address
       processer over all compute units on the accelerator, per normalization unit.
     Global/Generic Instructions: The total number of global & generic memory instructions
@@ -43,9 +43,9 @@ Panel Config:
       unit.
     Data-Return Busy: Percent of the total CU cycles the data-return unit was busy
       processing or waiting on data to return to the CU.
-    "Cache RAM \u2192 Data-Return Stall": Percent of the total CU cycles the data-return
+    Cache RAM \u2192 Data-Return Stall: Percent of the total CU cycles the data-return
       unit was stalled on data to be returned from the vL1D Cache RAM.
-    "Workgroup manager \u2192 Data-Return Stall": Percent of the total CU cycles the
+    Workgroup manager \u2192 Data-Return Stall: Percent of the total CU cycles the
       data-return unit was stalled by the workgroup manager due to initialization
       of registers as a part of launching new workgroups.
     Coalescable Instructions: The number of instructions submitted to the data-return
@@ -98,7 +98,7 @@ Panel Config:
           max: MAX(((100 * TA_DATA_STALLED_BY_TC_CYCLES_sum) / ($GRBM_GUI_ACTIVE_PER_XCD
             * $cu_per_gpu)))
           unit: pct
-        "Data-Processor \u2192 Address Stall":
+        Data-Processor \u2192 Address Stall:
           avg: AVG(((100 * TA_ADDR_STALLED_BY_TD_CYCLES_sum) / ($GRBM_GUI_ACTIVE_PER_XCD
             * $cu_per_gpu)))
           min: MIN(((100 * TA_ADDR_STALLED_BY_TD_CYCLES_sum) / ($GRBM_GUI_ACTIVE_PER_XCD
@@ -106,17 +106,17 @@ Panel Config:
           max: MAX(((100 * TA_ADDR_STALLED_BY_TD_CYCLES_sum) / ($GRBM_GUI_ACTIVE_PER_XCD
             * $cu_per_gpu)))
           unit: pct
-        "Sequencer \u2192 TA Address Stall":
+        Sequencer \u2192 TA Address Stall:
           avg: AVG((SQ_VMEM_TA_ADDR_FIFO_FULL / $denom))
           min: MIN((SQ_VMEM_TA_ADDR_FIFO_FULL / $denom))
           max: MAX((SQ_VMEM_TA_ADDR_FIFO_FULL / $denom))
           unit: (Cycles + $normUnit)
-        "Sequencer \u2192 TA Command Stall":
+        Sequencer \u2192 TA Command Stall:
           avg: AVG((SQ_VMEM_TA_CMD_FIFO_FULL / $denom))
           min: MIN((SQ_VMEM_TA_CMD_FIFO_FULL / $denom))
           max: MAX((SQ_VMEM_TA_CMD_FIFO_FULL / $denom))
           unit: (Cycles + $normUnit)
-        "Sequencer \u2192 TA Data Stall":
+        Sequencer \u2192 TA Data Stall:
           avg: AVG((SQ_VMEM_WR_TA_DATA_FIFO_FULL / $denom))
           min: MIN((SQ_VMEM_WR_TA_DATA_FIFO_FULL / $denom))
           max: MAX((SQ_VMEM_WR_TA_DATA_FIFO_FULL / $denom))
@@ -226,12 +226,12 @@ Panel Config:
           min: MIN(((100 * TD_TD_BUSY_sum) / ($GRBM_GUI_ACTIVE_PER_XCD * $cu_per_gpu)))
           max: MAX(((100 * TD_TD_BUSY_sum) / ($GRBM_GUI_ACTIVE_PER_XCD * $cu_per_gpu)))
           unit: pct
-        "Cache RAM \u2192 Data-Return Stall":
+        Cache RAM \u2192 Data-Return Stall:
           avg: AVG(((100 * TD_TC_STALL_sum) / ($GRBM_GUI_ACTIVE_PER_XCD * $cu_per_gpu)))
           min: MIN(((100 * TD_TC_STALL_sum) / ($GRBM_GUI_ACTIVE_PER_XCD * $cu_per_gpu)))
           max: MAX(((100 * TD_TC_STALL_sum) / ($GRBM_GUI_ACTIVE_PER_XCD * $cu_per_gpu)))
           unit: pct
-        "Workgroup manager \u2192 Data-Return Stall":
+        Workgroup manager \u2192 Data-Return Stall:
           avg: AVG(((100 * TD_SPI_STALL_sum) / ($GRBM_GUI_ACTIVE_PER_XCD * $cu_per_gpu)))
           min: MIN(((100 * TD_SPI_STALL_sum) / ($GRBM_GUI_ACTIVE_PER_XCD * $cu_per_gpu)))
           max: MAX(((100 * TD_SPI_STALL_sum) / ($GRBM_GUI_ACTIVE_PER_XCD * $cu_per_gpu)))

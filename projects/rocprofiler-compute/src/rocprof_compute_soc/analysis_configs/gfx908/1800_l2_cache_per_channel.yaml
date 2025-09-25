@@ -277,7 +277,7 @@ Panel Config:
       header:
         metric: Channel
         ea read stall - pcie: L2-Fabric Read Stall (PCIe)
-        ea read stall - if: "L2-Fabric Read Stall (Infinity Fabric\u2122)"
+        ea read stall - if: L2-Fabric Read Stall (Infinity Fabric\u2122)
         ea read stall - hbm: L2-Fabric Read Stall (HBM)
       metric:
         ::_1:
@@ -294,7 +294,7 @@ Panel Config:
       header:
         metric: Channel
         ea write stall - pcie: L2-Fabric Write Stall (PCIe)
-        ea write stall - if: "L2-Fabric Write Stall (Infinity Fabric\u2122)"
+        ea write stall - if: L2-Fabric Write Stall (Infinity Fabric\u2122)
         ea write stall - hbm: L2-Fabric Write Stall (HBM)
         ea write stall - starve: L2-Fabric Write Starve
       metric:
