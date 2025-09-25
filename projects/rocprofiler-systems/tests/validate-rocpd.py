@@ -9,8 +9,10 @@ import sys
 import sqlite3
 from pathlib import Path
 
-class validation_rule():
+
+class validation_rule:
     """Class to represent a validation rule as defined in JSON file"""
+
     def __init__(self, description, query, expected_result, comparison, error_message):
         self.description = description
         self.query = query
@@ -27,7 +29,7 @@ class validation_rule():
         defined in validation_queries in rules definition.
         NOTE: see default_rules.json
         """
-        match(self.comparison):
+        match (self.comparison):
             case "equals":
                 return result == self.expected_result
             case "greater_than":
@@ -43,9 +45,13 @@ class validation_rule():
             case _:
                 raise ValueError(f"Unknown comparison operator: {self.comparison}")
 
-class required_table():
+
+class required_table:
     """Class to represent a required table as defined in JSON rules file"""
-    def __init__(self, name, name_prefix, required_columns, min_rows=1, validation_queries=None):
+
+    def __init__(
+        self, name, name_prefix, required_columns, min_rows=1, validation_queries=None
+    ):
         if name is None and name_prefix is None:
             raise ValueError("Either 'name' or 'name_prefix' must be specified")
         if name is not None and name_prefix is not None:
@@ -58,16 +64,20 @@ class required_table():
         self.validation_queries = validation_queries or []
 
     def __repr__(self):
-        identifier = f"name={self.name}" if self.name else f"name_prefix={self.name_prefix}"
+        identifier = (
+            f"name={self.name}" if self.name else f"name_prefix={self.name_prefix}"
+        )
         return f"required_table({identifier}, required_columns={self.required_columns})"
 
     def get_table_identifier(self):
         """Returns the table identifier (name or prefix) for display purposes"""
         return self.name if self.name else f"{self.name_prefix}*"
 
+
 def print_help():
     """Print out the help message"""
-    print(f"""
+    print(
+        f"""
     ROCPD Database Validation Tool
 
     DESCRIPTION:
@@ -106,7 +116,9 @@ def print_help():
         64 - Invalid command line arguments (EX_USAGE)
         65 - Validation failures detected (EX_DATAERR)
         1  - General error (database connection, file not found, etc.)
-    """)
+    """
+    )
+
 
 def validate_table(cursor, rule, tables):
     """
@@ -129,12 +141,12 @@ def validate_table(cursor, rule, tables):
 
     if rule.name:
         for table in tables:
-            if table['name'] == rule.name:
+            if table["name"] == rule.name:
                 matching_table = table
                 break
     elif rule.name_prefix:
         for table in tables:
-            if table['name'].startswith(rule.name_prefix):
+            if table["name"].startswith(rule.name_prefix):
                 matching_table = table
                 break
 
@@ -142,44 +154,54 @@ def validate_table(cursor, rule, tables):
         print(f"❌ ERROR: Required table '{rule.name}' not found in database")
         return False
 
-    table_name = matching_table['name']
+    table_name = matching_table["name"]
 
     try:
         cursor.execute(f"PRAGMA table_info({table_name})")
         columns = cursor.fetchall()
-        column_names = [col['name'] for col in columns]
+        column_names = [col["name"] for col in columns]
 
-        missing_columns = [col for col in rule.required_columns if col not in column_names]
+        missing_columns = [
+            col for col in rule.required_columns if col not in column_names
+        ]
         if missing_columns:
-            print(f"❌ ERROR: Table '{table_name}' missing required columns: {missing_columns}")
+            print(
+                f"❌ ERROR: Table '{table_name}' missing required columns: {missing_columns}"
+            )
             return False
         else:
             print(f"✅ All required columns present: {rule.required_columns}")
 
         cursor.execute(f"SELECT COUNT(*) as count FROM {table_name}")
-        row_count = cursor.fetchone()['count']
+        row_count = cursor.fetchone()["count"]
 
         if row_count < rule.min_rows:
-            print(f"❌ ERROR: Table '{table_name}' has {row_count} rows, minimum required: {rule.min_rows}")
+            print(
+                f"❌ ERROR: Table '{table_name}' has {row_count} rows, minimum required: {rule.min_rows}"
+            )
             return False
         else:
-            print(f"✅ Row count check passed: {row_count} rows (minimum: {rule.min_rows})")
+            print(
+                f"✅ Row count check passed: {row_count} rows (minimum: {rule.min_rows})"
+            )
 
         all_queries_passed = True
         for validation_query in rule.validation_queries:
             try:
-                query = validation_query.query.replace('{table_name}', table_name)
+                query = validation_query.query.replace("{table_name}", table_name)
                 cursor.execute(query)
                 result = cursor.fetchone()
 
-                if result and 'count' in result.keys():
-                    actual_result = result['count']
+                if result and "count" in result.keys():
+                    actual_result = result["count"]
                 else:
                     actual_result = result[0] if result else None
 
                 if not validation_query.validate_query(actual_result):
                     print(f"❌ ERROR: {validation_query.error_message}")
-                    print(f"   Expected: {validation_query.comparison} {validation_query.expected_result}, Got: {actual_result}")
+                    print(
+                        f"   Expected: {validation_query.comparison} {validation_query.expected_result}, Got: {actual_result}"
+                    )
                     all_queries_passed = False
                 else:
                     print(f"✅ Validation query passed: {validation_query.description}")
@@ -239,37 +261,40 @@ def load_validation_rules(validation_rules):
               Returns empty list if file doesn't exist or on error.
     """
     import json
+
     all_rules = []
 
     for rules_file in validation_rules:
         try:
             rules_path = Path(rules_file)
             if not rules_path.exists():
-                print(f"Warning: Rules file '{rules_file}' not found, using default rules")
+                print(
+                    f"Warning: Rules file '{rules_file}' not found, using default rules"
+                )
                 return []
 
-            with open(rules_path, 'r') as f:
+            with open(rules_path, "r") as f:
                 rules_data = json.load(f)
                 rules = []
 
-                for table_data in rules_data['required_tables']:
+                for table_data in rules_data["required_tables"]:
                     validation_queries = []
-                    for vq in table_data.get('validation_queries', []):
+                    for vq in table_data.get("validation_queries", []):
                         validation_query_obj = validation_rule(
-                            description=vq['description'],
-                            query=vq['query'],
-                            expected_result=vq['expected_result'],
-                            comparison=vq.get('comparison', 'equals'),
-                            error_message=vq['error_message']
+                            description=vq["description"],
+                            query=vq["query"],
+                            expected_result=vq["expected_result"],
+                            comparison=vq.get("comparison", "equals"),
+                            error_message=vq["error_message"],
                         )
                         validation_queries.append(validation_query_obj)
 
                     required_table_obj = required_table(
-                        name=table_data.get('name', None),
-                        name_prefix=table_data.get('name_prefix', None),
-                        required_columns=table_data['required_columns'],
-                        min_rows=table_data.get('min_rows', 1),
-                        validation_queries=validation_queries
+                        name=table_data.get("name", None),
+                        name_prefix=table_data.get("name_prefix", None),
+                        required_columns=table_data["required_columns"],
+                        min_rows=table_data.get("min_rows", 1),
+                        validation_queries=validation_queries,
                     )
                     rules.append(required_table_obj)
                     print(f"Loaded required table rule: {required_table_obj}")
@@ -292,33 +317,33 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(add_help=False)
 
     parser.add_argument(
-        "-db", "--database",
-        type=Path,
-        help="Databse file to validate",
-        default=None
+        "-db", "--database", type=Path, help="Database file to validate", default=None
     )
 
     parser.add_argument(
-        "-r", "--validation-rules",
+        "-r",
+        "--validation-rules",
         type=Path,
-        nargs='+',
+        nargs="+",
         help="Rules against which to validate database",
-        default=[Path(f"{os.path.dirname(os.path.abspath(__file__))}/rocpd-validation-rules/default-rules.json")]
+        default=[
+            Path(
+                f"{os.path.dirname(os.path.abspath(__file__))}/rocpd-validation-rules/default-rules.json"
+            )
+        ],
     )
 
     parser.add_argument(
-        "-h", "--help",
-        action="store_true",
-        help="Prints out the help message"
+        "-h", "--help", action="store_true", help="Prints out the help message"
     )
 
     args = parser.parse_args()
 
-    if (args.help):
+    if args.help:
         print_help()
         sys.exit(os.EX_OK)
 
-    if (not args.database):
+    if not args.database:
         print("Database file not provided!")
         print_help()
 
