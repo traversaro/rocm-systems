@@ -1790,7 +1790,6 @@ typedef cudaGraphEdgeData hipGraphEdgeData;
 typedef cudaLaunchConfig_t hipLaunchConfig_t;
 typedef cudaLaunchAttribute hipLaunchAttribute;
 typedef CUlaunchAttribute hipDrvLaunchAttribute;
-typedef cudaKernel_t hipKernel_t;
 typedef CUlaunchConfig HIP_LAUNCH_CONFIG;
 typedef CUlaunchAttributeID hipDrvLaunchAttributeID;
 typedef CUlaunchAttributeValue hipDrvLaunchAttributeValue;
@@ -3660,6 +3659,15 @@ inline static hipError_t hipLibraryGetKernel(hipKernel_t* pKernel, hipLibrary_t 
 
 inline static hipError_t hipLibraryGetKernelCount(unsigned int* count, hipLibrary_t library) {
   return hipCUResultTohipError(cudaLibraryGetKernelCount(count, library));
+}
+
+inline static hipError_t hipKernelGetLibrary(hipLibrary_t* library, hipKernel_t kernel) {
+  return hipCUResultTohipError(cuKernelGetLibrary(library, kernel));
+}
+
+hipError_t hipLibraryEnumerateKernels(hipKernel_t* kernels, unsigned int numKernels,
+                                      hipLibrary_t library) {
+  return hipCUDAErrorTohipError(cudaLibraryEnumerateKernels(kernels, numKernels, library));
 }
 
 inline static hipError_t hipLaunchKernel(const void* function_address, dim3 numBlocks,
