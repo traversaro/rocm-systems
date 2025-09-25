@@ -39,6 +39,7 @@ from dash import dcc, html
 from plotly.subplots import make_subplots
 
 from utils import file_io, rocpd_data, schema
+from utils.kernel_name_shortener import shorten_demangled_name
 from utils.logger import (
     console_debug,
     console_error,
@@ -59,7 +60,7 @@ from utils.specs import MachineSpecs
 SYMBOLS = [0, 1, 2, 3, 4, 5, 13, 17, 18, 20]
 
 
-def wrap_text(text: str, width: int = 92) -> str:
+def wrap_text(text: str, width: int = 80) -> str:
     """
     Wraps text using textwrap and joins lines with <br> for Plotly.
     """
@@ -269,11 +270,11 @@ class Roofline:
             msg += f"\n\t{key} -> {value}"
         console_debug(msg)
 
-        kernel_legend_data = None
+        kernel_names_data = None
         if self.__ai_data and "kernelNames" in self.__ai_data:
             original_kernel_names = self.__ai_data.get("kernelNames", [])
             if len(original_kernel_names) > 0:
-                kernel_legend_data = {
+                kernel_names_data = {
                     "kernel_names": original_kernel_names,
                     "num_kernels": len(original_kernel_names),
                 }
@@ -302,7 +303,7 @@ class Roofline:
                     ops_figure = self.generate_plot(dtype=str(dt), fig=ops_figure)
                 else:
                     ops_figure = self.generate_plot(
-                        dtype=str(dt), kernel_legend_data=kernel_legend_data
+                        dtype=str(dt), kernel_names_data=kernel_names_data
                     )
                 ops_dt_list += "_" + str(dt)
 
@@ -311,7 +312,7 @@ class Roofline:
                     flops_figure = self.generate_plot(dtype=str(dt), fig=flops_figure)
                 else:
                     flops_figure = self.generate_plot(
-                        dtype=str(dt), kernel_legend_data=kernel_legend_data
+                        dtype=str(dt), kernel_names_data=kernel_names_data
                     )
                 flops_dt_list += "_" + str(dt)
 
@@ -377,50 +378,115 @@ class Roofline:
                 ],
             )
 
-    placed_annotations = {}
-
     @demarcate
     def generate_plot(
         self,
         dtype: str,
         fig: Optional[go.Figure] = None,
-        kernel_legend_data: Optional[dict] = None,
+        kernel_names_data: Optional[dict] = None,
     ) -> go.Figure:
         """
         Create graph object from ai_data (coordinate points) and ceiling_data
         (peak FLOP and BW) data.
         """
-        if fig is None and kernel_legend_data is None:
+        if fig is None and kernel_names_data is None:
             fig = go.Figure()
             skipAI = False
-        elif kernel_legend_data is not None:
+        elif kernel_names_data is not None:
             skipAI = True  # Don't repeat AI plotting
 
-            # Create a subplot layout with kernel legend at top, roofline plot at bottom
-            num_kernels = len(kernel_legend_data.get("kernel_names", []))
+            raw_kernel_names = kernel_names_data.get("kernel_names", [])
+            num_kernels = len(raw_kernel_names)
 
-            kernel_names_ratio = min(0.4, max(0.2, num_kernels * 0.04))
-            plot_height_ratio = 1 - kernel_names_ratio
+            # wrap text for each kernel name
+            wrapped_texts = [
+                wrap_text(shorten_demangled_name(name, 1)) for name in raw_kernel_names
+            ]
+
+            # calc lines per kernel (including the base line)
+            lines_per_kernel = [text.count("<br>") + 1 for text in wrapped_texts]
+            total_lines = sum(lines_per_kernel)
+
+            # fixed heights in pixels
+            SCATTER_PLOT_HEIGHT = 400  # fixed height for roofline plot
+            SUBPLOT_TITLE_HEIGHT = 40  # space for subplot titles
+            VERTICAL_SPACING = 90  # space between subplots
+
+            # dynamic kernel section sizing in pixels
+            PIXELS_PER_TEXT_LINE = 20  # height for each line of wrapped text
+            PIXELS_PER_KERNEL_PADDING = 10  # padding between kernels
+            HEADER_HEIGHT = 30  # space for "Symbol" and "Kernel Name" headers
+            TOP_BOTTOM_PADDING = 40  # combined top and bottom padding
+
+            kernel_text_height = total_lines * PIXELS_PER_TEXT_LINE
+            kernel_padding_height = (
+                (num_kernels - 1) * PIXELS_PER_KERNEL_PADDING if num_kernels > 1 else 0
+            )
+            kernel_section_height = (
+                kernel_text_height
+                + kernel_padding_height
+                + HEADER_HEIGHT
+                + TOP_BOTTOM_PADDING
+            )
+
+            total_figure_height = (
+                kernel_section_height
+                + SCATTER_PLOT_HEIGHT
+                + SUBPLOT_TITLE_HEIGHT
+                + VERTICAL_SPACING
+            )
+
+            kernel_subplot_ratio = kernel_section_height / (
+                kernel_section_height + SCATTER_PLOT_HEIGHT
+            )
+            scatter_subplot_ratio = 1 - kernel_subplot_ratio
+
+            kernel_subplot_ratio = min(0.7, max(0.2, kernel_subplot_ratio))
+            scatter_subplot_ratio = 1 - kernel_subplot_ratio
 
             fig = make_subplots(
                 rows=2,
                 cols=1,
-                row_heights=[kernel_names_ratio, plot_height_ratio],
+                row_heights=[scatter_subplot_ratio, kernel_subplot_ratio],
                 subplot_titles=[
-                    "Kernel Names and Corresponding Markers",
                     f"Roofline Analysis ({dtype})",
+                    "Kernel Names and Corresponding Markers",
                 ],
-                vertical_spacing=0.05,
+                vertical_spacing=VERTICAL_SPACING
+                / total_figure_height,  # Convert to ratio
                 specs=[[{"type": "scatter"}], [{"type": "scatter"}]],
             )
 
-            # Add kernel legend to top subplot
-            symbols_list = [SYMBOLS[i % len(SYMBOLS)] for i in range(num_kernels)]
+            SUBPLOT_LINE_HEIGHT = 1.0  # height per line in subplot coordinates
+            SUBPLOT_KERNEL_PADDING = (
+                0.5  # padding between kernels in subplot coordinates
+            )
+            SUBPLOT_HEADER_SPACE = 1.5  # space for headers in subplot coordinates
+            SUBPLOT_PADDING = 0.5  # top/bottom padding
 
+            # calc positions in subplot coordinate system
+            subplot_content_height = (
+                total_lines * SUBPLOT_LINE_HEIGHT
+                + (num_kernels - 1) * SUBPLOT_KERNEL_PADDING
+                + SUBPLOT_HEADER_SPACE
+                + 2 * SUBPLOT_PADDING
+            )
+
+            # calc y-positions for each kernel entry
+            entry_y_positions = []
+            current_y = subplot_content_height - SUBPLOT_HEADER_SPACE - SUBPLOT_PADDING
+
+            for i in range(num_kernels):
+                kernel_height = lines_per_kernel[i] * SUBPLOT_LINE_HEIGHT
+                center_y = current_y - (kernel_height / 2)
+                entry_y_positions.append(center_y)
+                current_y -= kernel_height + SUBPLOT_KERNEL_PADDING
+
+            symbols_list = [SYMBOLS[i % len(SYMBOLS)] for i in range(num_kernels)]
             fig.add_trace(
                 go.Scatter(
-                    x=[0.1] * num_kernels,
-                    y=list(range(num_kernels, 0, -1)),
+                    x=[0.05] * num_kernels,
+                    y=entry_y_positions,
                     mode="markers",
                     marker=dict(
                         symbol=symbols_list,
@@ -431,56 +497,62 @@ class Roofline:
                     showlegend=False,
                     hoverinfo="skip",
                 ),
-                row=1,
+                row=2,
                 col=1,
             )
 
-            # Add kernel name annotations to top subplot
-            for i, kernel_name in enumerate(kernel_legend_data["kernel_names"]):
+            for i, wrapped_text in enumerate(wrapped_texts):
                 fig.add_annotation(
-                    x=0.25,
-                    y=num_kernels - i,
-                    text=wrap_text(kernel_name),
+                    x=0.1,
+                    y=entry_y_positions[i],
+                    text=wrapped_text,
                     showarrow=False,
                     xanchor="left",
                     yanchor="middle",
                     align="left",
-                    font=dict(size=11, color="black"),
-                    row=1,
+                    font=dict(size=10, color="black"),
+                    row=2,
                     col=1,
                 )
 
-            # Add headers for legend
+            header_y = (
+                subplot_content_height - SUBPLOT_PADDING - (SUBPLOT_HEADER_SPACE / 2)
+            )
+
             fig.add_annotation(
-                x=0.1,
-                y=num_kernels + 1,
+                x=0.05,
+                y=header_y,
                 text="<b>Symbol</b>",
                 showarrow=False,
                 xanchor="center",
                 yanchor="middle",
-                font=dict(size=12, color="black"),
-                row=1,
+                font=dict(size=11, color="black"),
+                row=2,
                 col=1,
             )
             fig.add_annotation(
-                x=0.25,
-                y=num_kernels + 1,
+                x=0.1,
+                y=header_y,
                 text="<b>Kernel Name</b>",
                 showarrow=False,
                 xanchor="left",
                 yanchor="middle",
-                font=dict(size=12, color="black"),
-                row=1,
+                font=dict(size=11, color="black"),
+                row=2,
                 col=1,
             )
 
-            # Configure the legend subplot layout
-            fig.update_xaxes(visible=False, range=[0, 1], row=1, col=1)
-            fig.update_yaxes(visible=False, range=[0, num_kernels + 2], row=1, col=1)
+            fig.update_xaxes(
+                visible=False, range=[0, 1], row=2, col=1
+            )  # Changed from row=1 to row=2
+            fig.update_yaxes(
+                visible=False, range=[0, subplot_content_height], row=2, col=1
+            )
 
             skipAI = False
         else:
             skipAI = True  # Don't repeat AI plotting
+            total_figure_height = 600
 
         plot_mode = "lines+text" if self.__run_parameters["is_standalone"] else "lines"
 
@@ -493,8 +565,7 @@ class Roofline:
 
         ops_flops = "OP" if dtype.startswith("I") else "FLOP"  # For printing purposes
 
-        # Determine which subplot to use for roofline plot
-        subplot_row = 2 if kernel_legend_data is not None else None
+        subplot_row = 1 if kernel_names_data is not None else None
         subplot_kwargs = {"row": subplot_row, "col": 1} if subplot_row else {}
 
         #######################
@@ -537,7 +608,7 @@ class Roofline:
         # Plot ceilings
         #######################
         BW_LABEL_PROXIMITY_RATIO = (
-            5.0  # If y-values are within this ratio, they are "close" on a log scale.
+            5.0  # if y-values are within this ratio, they are "close" on a log scale.
         )
         BW_LABEL_CYCLE_POSITIONS = ["bottom right", "top right", "middle right"]
         BW_LABEL_DEFAULT_POSITION = "middle right"
@@ -637,7 +708,7 @@ class Roofline:
                     name=f"Peak VALU-{dtype}",
                     mode=plot_mode,
                     text=[None, f"{to_int(valu_data[2])} G{ops_flops}/s"],
-                    textposition=valu_pos,  # Use the calculated position
+                    textposition=valu_pos,
                     textfont=dict(size=10, color="black"),
                     hovertemplate="<b>%{text}</b><extra></extra>",
                 ),
@@ -653,7 +724,7 @@ class Roofline:
                     name=f"Peak MFMA-{dtype}",
                     mode=plot_mode,
                     text=[None, f"{to_int(mfma_data[2])} G{ops_flops}/s"],
-                    textposition=mfma_pos,  # Use the calculated position
+                    textposition=mfma_pos,
                     textfont=dict(size=10, color="black"),
                     hovertemplate="<b>%{text}</b><extra></extra>",
                 ),
@@ -686,10 +757,11 @@ class Roofline:
             fig.update_xaxes(type="log", autorange=True)
             fig.update_yaxes(type="log", autorange=True)
 
+        # Set the final figure height
         fig.update_layout(
+            height=int(total_figure_height),
             hovermode="x unified",
             margin=dict(l=50, r=50, b=50, t=50, pad=7),
-            height=600 if kernel_legend_data else 600,
         )
 
         return fig
