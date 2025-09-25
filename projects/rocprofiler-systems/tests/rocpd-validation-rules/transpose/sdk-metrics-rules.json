@@ -12,18 +12,18 @@
             ],
             "validation_queries": [
                 {
-                    "description": "Verify that 'rocm_hip-api' appears in category at least 1500 times in table events_args",
-                    "query": "SELECT COUNT(*) FROM events_args WHERE category = 'rocm_hip_api';",
-                    "expected_result": 1500,
                     "comparison": "greater_than",
-                    "error_message": "'rocm_hip-api' category entries are fewer than expected in events_args"
+                    "description": "Verify that 'rocm_hip_api' appears in category at least 1500 times in table events_args",
+                    "error_message": "'rocm_hip_api' category entries are fewer than expected in events_args",
+                    "expected_result": 1500,
+                    "query": "SELECT COUNT(*) FROM events_args WHERE category = 'rocm_hip_api';"
                 },
                 {
-                    "description": "Check for missing category entries",
-                    "query": "SELECT COUNT(*) FROM events_args WHERE category IS NULL OR TRIM(category) = '';",
-                    "expected_result": 0,
                     "comparison": "equals",
-                    "error_message": "Empty or NULL category entries found in events_args"
+                    "description": "Check for missing category entries",
+                    "error_message": "Empty or NULL category entries found in events_args",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) FROM events_args WHERE category IS NULL OR TRIM(category) = '';"
                 }
             ]
         },
@@ -38,25 +38,25 @@
             ],
             "validation_queries": [
                 {
-                    "description": "Verify that 'rocm_hip-api' appears in category at least 500 times in table regions",
-                    "query": "SELECT COUNT(*) FROM regions WHERE category = 'rocm_hip_api';",
-                    "expected_result": 500,
                     "comparison": "greater_than",
-                    "error_message": "'rocm_hip-api' category entries are fewer than expected in regions"
+                    "description": "Verify that 'rocm_hip_api' appears in category at least 500 times in table regions",
+                    "error_message": "'rocm_hip_api' category entries are fewer than expected in regions",
+                    "expected_result": 500,
+                    "query": "SELECT COUNT(*) FROM regions WHERE category = 'rocm_hip_api';"
                 },
                 {
+                    "comparison": "equals",
                     "description": "Ensure there are no HIP API calls that last 0 seconds",
-                    "query": "SELECT COUNT(*) FROM regions WHERE category = 'rocm_hip_api' AND duration = 0;",
+                    "error_message": "Found HIP API captures where duration is 0",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "Found HIP API captures where duration is 0"
+                    "query": "SELECT COUNT(*) FROM regions WHERE category = 'rocm_hip_api' AND duration = 0;"
                 },
                 {
-                    "description": "Check for any NULL values in the 'name' column of regions",
-                    "query": "SELECT COUNT(*) FROM regions WHERE name IS NULL;",
-                    "expected_result": 0,
                     "comparison": "equals",
-                    "error_message": "NULL entries found in the name column of regions"
+                    "description": "Check for any NULL values in the 'name' column of regions",
+                    "error_message": "NULL entries found in the name column of regions",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) FROM regions WHERE name IS NULL;"
                 }
             ]
         },
@@ -70,11 +70,11 @@
             ],
             "validation_queries": [
                 {
-                    "description": "Verify that 'rocm_hip_api' string is present in the table",
-                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_hip_api%';",
-                    "expected_result": 1,
                     "comparison": "greater_than",
-                    "error_message": "'rocm_hip_api' string not found in the table rocpd_string"
+                    "description": "Verify that 'rocm_hip_api' string is present in the table",
+                    "error_message": "'rocm_hip_api' string not found in the table rocpd_string",
+                    "expected_result": 1,
+                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_hip_api%';"
                 }
             ]
         },
@@ -90,11 +90,11 @@
             ],
             "validation_queries": [
                 {
-                    "description": "Verify that 'rocm_hsa_api' appears in category at least 1000 times in table events_args",
-                    "query": "SELECT COUNT(*) FROM events_args WHERE category = 'rocm_hsa_api';",
-                    "expected_result": 1000,
                     "comparison": "greater_than",
-                    "error_message": "'rocm_hsa_api' category entries are fewer than expected in events_args"
+                    "description": "Verify that 'rocm_hsa_api' appears in category at least 1000 times in table events_args",
+                    "error_message": "'rocm_hsa_api' category entries are fewer than expected in events_args",
+                    "expected_result": 1000,
+                    "query": "SELECT COUNT(*) FROM events_args WHERE category = 'rocm_hsa_api';"
                 }
             ]
         },
@@ -109,25 +109,25 @@
             ],
             "validation_queries": [
                 {
-                    "description": "Verify that rocm_hsa_api' appears in category at least 500 times in table regions",
-                    "query": "SELECT COUNT(*) FROM regions WHERE category = 'rocm_hsa_api';",
-                    "expected_result": 500,
                     "comparison": "greater_than",
-                    "error_message": "'rocm_hsa_api' category entries are fewer than expected in regions"
+                    "description": "Verify that rocm_hsa_api' appears in category at least 500 times in table regions",
+                    "error_message": "'rocm_hsa_api' category entries are fewer than expected in regions",
+                    "expected_result": 500,
+                    "query": "SELECT COUNT(*) FROM regions WHERE category = 'rocm_hsa_api';"
                 },
                 {
+                    "comparison": "equals",
                     "description": "Ensure there are no HSA API calls that last 0 seconds",
-                    "query": "SELECT COUNT(*) FROM regions WHERE category = 'rocm_hsa_api' AND duration = 0;",
+                    "error_message": "Found HSA API captures where duration is 0",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "Found HSA API captures where duration is 0"
+                    "query": "SELECT COUNT(*) FROM regions WHERE category = 'rocm_hsa_api' AND duration = 0;"
                 },
                 {
-                    "description": "Check for any NULL values in the 'name' column of regions",
-                    "query": "SELECT COUNT(*) FROM regions WHERE name IS NULL;",
-                    "expected_result": 0,
                     "comparison": "equals",
-                    "error_message": "NULL entries found in the name column of regions"
+                    "description": "Check for any NULL values in the 'name' column of regions",
+                    "error_message": "NULL entries found in the name column of regions",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) FROM regions WHERE name IS NULL;"
                 }
             ]
         },
@@ -141,11 +141,11 @@
             ],
             "validation_queries": [
                 {
-                    "description": "Verify that 'rocm_hsa_api' string is present in the table",
-                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_hsa_api%';",
-                    "expected_result": 1,
                     "comparison": "greater_than",
-                    "error_message": "'rocm_hsa_api' string not found in the table rocpd_string"
+                    "description": "Verify that 'rocm_hsa_api' string is present in the table",
+                    "error_message": "'rocm_hsa_api' string not found in the table rocpd_string",
+                    "expected_result": 1,
+                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_hsa_api%';"
                 }
             ]
         },
@@ -168,25 +168,25 @@
             ],
             "validation_queries": [
                 {
+                    "comparison": "equals",
                     "description": "Check that all IDs are not NULL",
-                    "query": "SELECT COUNT(*) FROM memory_allocations WHERE id IS NULL;",
+                    "error_message": "NULL entries found in the id column of memory_allocations",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "NULL entries found in the id column of memory_allocations"
+                    "query": "SELECT COUNT(*) FROM memory_allocations WHERE id IS NULL;"
                 },
                 {
+                    "comparison": "equals",
                     "description": "Check the sizes of executed memory allocate calls",
-                    "query": "SELECT COUNT(*) FROM memory_copies WHERE size IS NULL or 0;",
+                    "error_message": "NULL entries found where allocated size is 0 or non-existing field",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "NULL entries found where allocated size is 0 or non-existing field"
+                    "query": "SELECT COUNT(*) FROM memory_copies WHERE size IS NULL or 0;"
                 },
                 {
-                    "description": "Verify that 'rocm_memory_allocate' appears more than 1 times in category",
-                    "query": "SELECT COUNT(*) FROM memory_allocations WHERE category LIKE '%rocm_memory_allocate%';",
-                    "expected_result": 1,
                     "comparison": "greater_than",
-                    "error_message": "'rocm_memory_allocate' string appears fewer than 1 times in category column of memory_allocations"
+                    "description": "Verify that 'rocm_memory_allocate' appears more than 1 times in category",
+                    "error_message": "'rocm_memory_allocate' string appears fewer than 1 times in category column of memory_allocations",
+                    "expected_result": 1,
+                    "query": "SELECT COUNT(*) FROM memory_allocations WHERE category LIKE '%rocm_memory_allocate%';"
                 }
             ]
         },
@@ -199,11 +199,11 @@
             ],
             "validation_queries": [
                 {
-                    "description": "Verify that 'rocm_memory_allocate' is present in the string column",
-                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_memory_allocate%';",
-                    "expected_result": 0,
                     "comparison": "greater_than",
-                    "error_message": "'rocm_memory_allocate' string not found in the string column of rocpd_string"
+                    "description": "Verify that 'rocm_memory_allocate' is present in the string column",
+                    "error_message": "'rocm_memory_allocate' string not found in the string column of rocpd_string",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_memory_allocate%';"
                 }
             ]
         },
@@ -217,25 +217,25 @@
             ],
             "validation_queries": [
                 {
+                    "comparison": "greater_than",
                     "description": "Verify that 'rocm_memory_copy' is present in the string column",
-                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_memory_copy%';",
+                    "error_message": "'rocm_memory_copy' string not found in the string column of rocpd_string",
                     "expected_result": 0,
-                    "comparison": "greater_than",
-                    "error_message": "'rocm_memory_copy' string not found in the string column of rocpd_string"
+                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%rocm_memory_copy%';"
                 },
                 {
+                    "comparison": "greater_than",
                     "description": "Verify that 'MEMORY_COPY_DEVICE_TO_HOST' is present in the string column",
-                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%MEMORY_COPY_DEVICE_TO_HOST%';",
+                    "error_message": "'MEMORY_COPY_DEVICE_TO_HOST' string not found in the string column of rocpd_string",
                     "expected_result": 0,
-                    "comparison": "greater_than",
-                    "error_message": "'MEMORY_COPY_DEVICE_TO_HOST' string not found in the string column of rocpd_string"
+                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%MEMORY_COPY_DEVICE_TO_HOST%';"
                 },
                 {
-                    "description": "Verify that 'MEMORY_COPY_HOST_TO_DEVICE' is present in the string column",
-                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%MEMORY_COPY_HOST_TO_DEVICE%';",
-                    "expected_result": 0,
                     "comparison": "greater_than",
-                    "error_message": "'MEMORY_COPY_HOST_TO_DEVICE' string not found in the string column of rocpd_string"
+                    "description": "Verify that 'MEMORY_COPY_HOST_TO_DEVICE' is present in the string column",
+                    "error_message": "'MEMORY_COPY_HOST_TO_DEVICE' string not found in the string column of rocpd_string",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) FROM rocpd_string WHERE string LIKE '%MEMORY_COPY_HOST_TO_DEVICE%';"
                 }
             ]
         },
@@ -254,32 +254,32 @@
             ],
             "validation_queries": [
                 {
-                    "description": "Verify that 'rocm_memory_copy' appears in category column",
-                    "query": "SELECT COUNT(*) FROM memory_copies WHERE category LIKE '%rocm_memory_copy%';",
-                    "expected_result": 0,
                     "comparison": "greater_than",
-                    "error_message": "'rocm_memory_copy' string appears fewer than 10 times in category column of memory_copies"
+                    "description": "Verify that 'rocm_memory_copy' appears in category column",
+                    "error_message": "'rocm_memory_copy' string appears fewer than 10 times in category column of memory_copies",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) FROM memory_copies WHERE category LIKE '%rocm_memory_copy%';"
                 },
                 {
+                    "comparison": "equals",
                     "description": "Check that all IDs are not NULL",
-                    "query": "SELECT COUNT(*) FROM memory_copies WHERE id IS NULL;",
+                    "error_message": "NULL entries found in the id column of memory_copies",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "NULL entries found in the id column of memory_copies"
+                    "query": "SELECT COUNT(*) FROM memory_copies WHERE id IS NULL;"
                 },
                 {
+                    "comparison": "equals",
                     "description": "Check the sizes of executed memory_copy calls",
-                    "query": "SELECT COUNT(*) FROM memory_copies WHERE size IS NULL or 0;",
+                    "error_message": "NULL entries found where copied size is 0 or non-existing field",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "NULL entries found where copied size is 0 or non-existing field"
+                    "query": "SELECT COUNT(*) FROM memory_copies WHERE size IS NULL or 0;"
                 },
                 {
-                    "description": "Check the agents executing memory_copy calls",
-                    "query": "SELECT COUNT(*) FROM memory_copies WHERE size IS NULL or 0;",
-                    "expected_result": 0,
                     "comparison": "equals",
-                    "error_message": "NULL entries found where copied size is 0 or non-existing field"
+                    "description": "Check the agents executing memory_copy calls",
+                    "error_message": "NULL entries found where copied size is 0 or non-existing field",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) FROM memory_copies WHERE size IS NULL or 0;"
                 }
             ]
         },
@@ -294,32 +294,32 @@
             ],
             "validation_queries": [
                 {
+                    "comparison": "equals",
                     "description": "Verify that all dst_agent_abs_index values exist in rocpd_info_agent table",
-                    "query": "SELECT COUNT(*) FROM memory_copies mc LEFT JOIN rocpd_info_agent ag ON mc.dst_agent_abs_index = ag.absolute_index AND mc.guid = ag.guid WHERE mc.dst_agent_abs_index IS NOT NULL AND ag.absolute_index IS NULL;",
+                    "error_message": "Found dst_agent_abs_index values in memory_copies that do not exist in rocpd_info_agent table",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "Found dst_agent_abs_index values in memory_copies that do not exist in rocpd_info_agent table"
+                    "query": "SELECT COUNT(*) FROM memory_copies mc LEFT JOIN rocpd_info_agent ag ON mc.dst_agent_abs_index = ag.absolute_index AND mc.guid = ag.guid WHERE mc.dst_agent_abs_index IS NOT NULL AND ag.absolute_index IS NULL;"
                 },
                 {
+                    "comparison": "equals",
                     "description": "Verify that all src_agent_abs_index values exist in rocpd_info_agent table",
-                    "query": "SELECT COUNT(*) FROM memory_copies mc LEFT JOIN rocpd_info_agent ag ON mc.src_agent_abs_index = ag.absolute_index AND mc.guid = ag.guid WHERE mc.src_agent_abs_index IS NOT NULL AND ag.absolute_index IS NULL;",
+                    "error_message": "Found src_agent_abs_index values in memory_copies that do not exist in rocpd_info_agent table",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "Found src_agent_abs_index values in memory_copies that do not exist in rocpd_info_agent table"
+                    "query": "SELECT COUNT(*) FROM memory_copies mc LEFT JOIN rocpd_info_agent ag ON mc.src_agent_abs_index = ag.absolute_index AND mc.guid = ag.guid WHERE mc.src_agent_abs_index IS NOT NULL AND ag.absolute_index IS NULL;"
                 },
                 {
+                    "comparison": "equals",
                     "description": "Check that dst_agent_abs_index is not NULL for memory copy operations",
-                    "query": "SELECT COUNT(*) FROM memory_copies WHERE dst_agent_abs_index IS NULL;",
+                    "error_message": "NULL entries found in dst_agent_abs_index column of memory_copies",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "NULL entries found in dst_agent_abs_index column of memory_copies"
+                    "query": "SELECT COUNT(*) FROM memory_copies WHERE dst_agent_abs_index IS NULL;"
                 },
                 {
-                    "description": "Check that src_agent_abs_index is not NULL for memory copy operations",
-                    "query": "SELECT COUNT(*) FROM memory_copies WHERE src_agent_abs_index IS NULL;",
-                    "expected_result": 0,
                     "comparison": "equals",
-                    "error_message": "NULL entries found in src_agent_abs_index column of memory_copies"
+                    "description": "Check that src_agent_abs_index is not NULL for memory copy operations",
+                    "error_message": "NULL entries found in src_agent_abs_index column of memory_copies",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) FROM memory_copies WHERE src_agent_abs_index IS NULL;"
                 }
             ]
         }
