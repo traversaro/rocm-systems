@@ -1,0 +1,14 @@
+{
+    "required_tables": [
+        {
+            "name": "threads",
+            "min_rows": 10,
+            "required_columns": [
+                "tid",
+                "start",
+                "end",
+                "name"
+            ]
+        }
+    ]
+}

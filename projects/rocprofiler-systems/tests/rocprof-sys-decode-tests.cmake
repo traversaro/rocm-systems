@@ -77,6 +77,16 @@ if(${ENABLE_ROCPD_TEST})
         SAMPLING_PASS_REGEX "rocpd.db"
         REWRITE_RUN_PASS_REGEX "rocpd.db"
     )
+
+    rocprofiler_systems_add_validation_test(
+        NAME video-decode-rocpd-sampling
+        ROCPD_FILE "rocpd.db"
+        ARGS --validation-rules
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/video-decode/validation-rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/video-decode/amd-smi-rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/video-decode/sdk-metrics-rules.json"
+        LABELS "decode;rocpd"
+    )
 endif()
 
 # -------------------------------------------------------------------------------------- #
@@ -114,5 +124,13 @@ if(${ENABLE_ROCPD_TEST})
         LABELS "decode;rocpd"
         SAMPLING_PASS_REGEX "rocpd.db"
         REWRITE_RUN_PASS_REGEX "rocpd.db"
+    )
+
+    rocprofiler_systems_add_validation_test(
+        NAME jpeg-decode-rocpd-sampling
+        ROCPD_FILE "rocpd.db"
+        ARGS --validation-rules
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/default-rules.json"
+        LABELS "decode;rocpd"
     )
 endif()
