@@ -29,21 +29,20 @@ class validation_rule:
         defined in validation_queries in rules definition.
         NOTE: see default_rules.json
         """
-        match (self.comparison):
-            case "equals":
-                return result == self.expected_result
-            case "greater_than":
-                return result > self.expected_result
-            case "less_than":
-                return result < self.expected_result
-            case "greater_than_or_equal":
-                return result >= self.expected_result
-            case "less_then_or_equal":
-                return result <= self.expected_result
-            case "not_equals":
-                return result != self.expected_result
-            case _:
-                raise ValueError(f"Unknown comparison operator: {self.comparison}")
+        if self.comparison == "equals":
+            return result == self.expected_result
+        elif self.comparison == "greater_than":
+            return result > self.expected_result
+        elif self.comparison == "less_than":
+            return result < self.expected_result
+        elif self.comparison == "greater_than_or_equal":
+            return result >= self.expected_result
+        elif self.comparison == "less_then_or_equal":
+            return result <= self.expected_result
+        elif self.comparison == "not_equals":
+            return result != self.expected_result
+        else:
+            raise ValueError(f"Unknown comparison operator: {self.comparison}")
 
 
 class required_table:
