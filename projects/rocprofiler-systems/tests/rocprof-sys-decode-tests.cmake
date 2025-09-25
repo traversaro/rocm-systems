@@ -130,7 +130,10 @@ if(${ENABLE_ROCPD_TEST})
         NAME jpeg-decode-rocpd-sampling
         ROCPD_FILE "rocpd.db"
         ARGS --validation-rules
-        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/default-rules.json"
+            "${CMAKE_CURRENT_LIST_DIR}/tests/rocpd-validation-rules/default-rules.json"
+            "${CMAKE_CURRENT_LIST_DIR}/tests/rocpd-validation-rules/jpeg-decode/validation-rules.json"
+            "${CMAKE_CURRENT_LIST_DIR}/tests/rocpd-validation-rules/jpeg-decode/amd-smi-rules.json"
+            "${CMAKE_CURRENT_LIST_DIR}/tests/rocpd-validation-rules/jpeg-decode/sdk-metrics-rules.json"
         LABELS "decode;rocpd"
     )
 endif()
