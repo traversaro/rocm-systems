@@ -465,7 +465,7 @@ class RocProfCompute_Base:
                     console_debug(output)
 
             console_log("profiling", f"Current input file: {fname}")
-            options = self.get_profiler_options(fname, self._soc)
+            options = self.get_profiler_options(str(fname), self._soc)
             start_time = time.time()
             if self.__profiler == "rocprofv3" or self.__profiler == "rocprofiler-sdk":
                 # Only 1-run case is permitted for attach/detach
