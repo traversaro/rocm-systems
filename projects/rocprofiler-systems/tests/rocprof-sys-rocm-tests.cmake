@@ -184,7 +184,7 @@ if(${ENABLE_ROCPD_TEST})
         "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/amd-smi-rules.json"
         "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/cpu-metrics-rules.json"
         "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/timer-sampling-rules.json"
-        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/SDK-metrics-rules.json"
+        "${CMAKE_CURRENT_LIST_DIR}/rocpd-validation-rules/transpose/sdk-metrics-rules.json"
         LABELS "rocpd"
     )
 endif()
