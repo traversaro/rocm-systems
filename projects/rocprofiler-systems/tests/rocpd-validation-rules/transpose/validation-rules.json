@@ -9,38 +9,38 @@
             ],
             "validation_queries": [
                 {
+                    "comparison": "equals",
                     "description": "Check for null function names",
-                    "query": "SELECT COUNT(*) as count FROM kernel_summary WHERE name IS NULL",
+                    "error_message": "Found API calls with null function names",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "Found API calls with null function names"
+                    "query": "SELECT COUNT(*) as count FROM kernel_summary WHERE name IS NULL"
                 },
                 {
-                    "description": "Check that we have some kernel calls",
-                    "query": "SELECT COUNT(*) as count FROM kernel_summary",
-                    "expected_result": 0,
                     "comparison": "greater_than",
-                    "error_message": "No kernel calls found in summary"
+                    "description": "Check that we have some kernel calls",
+                    "error_message": "No kernel calls found in summary",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) as count FROM kernel_summary"
                 },
                 {
+                    "comparison": "equals",
                     "description": "Check that we have transpose kernel captured",
-                    "query": "SELECT COUNT(*) as count FROM kernel_summary WHERE name LIKE 'transpose%'",
+                    "error_message": "No kernel calls found in summary",
                     "expected_result": 1,
-                    "comparison": "equals",
-                    "error_message": "No kernel calls found in summary"
+                    "query": "SELECT COUNT(*) as count FROM kernel_summary WHERE name LIKE 'transpose%'"
                 },
                 {
-                    "description": "Check that we have predefined number of kernel calls",
-                    "query": "SELECT calls as num_calls FROM kernel_summary WHERE name LIKE 'transpose%'",
-                    "expected_result": 1000,
                     "comparison": "equals",
-                    "error_message": "No kernel calls found in summary"
+                    "description": "Check that we have predefined number of kernel calls",
+                    "error_message": "No kernel calls found in summary",
+                    "expected_result": 1000,
+                    "query": "SELECT calls as num_calls FROM kernel_summary WHERE name LIKE 'transpose%'"
                 }
             ]
         },
         {
-            "name": "kernels",
             "min_rows": 1000,
+            "name": "kernels",
             "required_columns": [
                 "id",
                 "category",
@@ -52,38 +52,38 @@
             ],
             "validation_queries": [
                 {
+                    "comparison": "equals",
                     "description": "Check for null function names",
-                    "query": "SELECT COUNT(*) as count FROM kernels WHERE name IS NULL",
+                    "error_message": "Found kernels with null function names",
                     "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "Found kernels with null function names"
+                    "query": "SELECT COUNT(*) as count FROM kernels WHERE name IS NULL"
                 },
                 {
-                    "description": "Check that we have kernel entries",
-                    "query": "SELECT COUNT(*) as count FROM kernels",
-                    "expected_result": 1000,
                     "comparison": "greater_than",
-                    "error_message": "No kernel entries found"
-                },
-                {
-                    "description": "Check for kernels with no active time",
-                    "query": "SELECT COUNT(*) as count FROM kernels WHERE (end - start) = 0",
-                    "expected_result": 0,
-                    "comparison": "equals",
-                    "error_message": "Kernels with no active execution times found"
-                },
-                {
-                    "description": "Check that we have number of kernel entries as expected number of calls",
-                    "query": "SELECT COUNT(*) as count FROM kernels WHERE name LIKE 'transpose%'",
+                    "description": "Check that we have kernel entries",
+                    "error_message": "No kernel entries found",
                     "expected_result": 1000,
+                    "query": "SELECT COUNT(*) as count FROM kernels"
+                },
+                {
                     "comparison": "equals",
-                    "error_message": "Mismatch in expected numbers of kernels entries"
+                    "description": "Check for kernels with no active time",
+                    "error_message": "Kernels with no active execution times found",
+                    "expected_result": 0,
+                    "query": "SELECT COUNT(*) as count FROM kernels WHERE (end - start) = 0"
+                },
+                {
+                    "comparison": "equals",
+                    "description": "Check that we have number of kernel entries as expected number of calls",
+                    "error_message": "Mismatch in expected numbers of kernels entries",
+                    "expected_result": 1000,
+                    "query": "SELECT COUNT(*) as count FROM kernels WHERE name LIKE 'transpose%'"
                 }
             ]
         },
         {
-            "name": "threads",
             "min_rows": 3,
+            "name": "threads",
             "required_columns": [
                 "tid",
                 "start",
