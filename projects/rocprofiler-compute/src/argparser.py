@@ -24,6 +24,7 @@
 ##############################################################################
 
 import argparse
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -185,7 +186,7 @@ Examples:
         metavar="",
         type=str,
         dest="subpath",
-        default="gpu",
+        default="gpu_model",
         required=False,
         help=(
             "\t\t\tSpecify the type of subpath to save workload: node_name, gpu_model."
@@ -351,7 +352,9 @@ Examples:
         type=str,
         dest="rocprofiler_sdk_library_path",
         required=False,
-        default="/opt/rocm/lib/librocprofiler-sdk.so",
+        default=str(
+            Path(os.getenv("ROCM_PATH", "/opt/rocm")) / "lib/librocprofiler-sdk.so"
+        ),
         help="\t\t\tSet the path to rocprofiler SDK library.",
     )
     profile_group.add_argument(
