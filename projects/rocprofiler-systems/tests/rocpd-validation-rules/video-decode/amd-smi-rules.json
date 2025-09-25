@@ -1,8 +1,8 @@
 {
     "required_tables": [
         {
-            "name_prefix": "rocpd_info_pmc_",
             "min_rows": 1,
+            "name_prefix": "rocpd_info_pmc_",
             "required_columns": [
                 "agent_id",
                 "target_arch",
@@ -14,17 +14,17 @@
             ],
             "validation_queries": [
                 {
-                    "description": "Check for vcn_activity amd-smi metrics",
-                    "query": "SELECT COUNT(*) as count FROM {table_name} WHERE symbol LIKE 'VcnAct%'",
-                    "expected_result": 1,
                     "comparison": "greater_than",
-                    "error_message": "Did not find vcn_activity in amd-smi metrics"
+                    "description": "Check for vcn_activity amd-smi metrics",
+                    "error_message": "Did not find vcn_activity in amd-smi metrics",
+                    "expected_result": 1,
+                    "query": "SELECT COUNT(*) as count FROM {table_name} WHERE symbol LIKE 'VcnAct%'"
                 }
             ]
         },
         {
-            "name_prefix": "rocpd_pmc_event_",
             "min_rows": 500,
+            "name_prefix": "rocpd_pmc_event_",
             "required_columns": [
                 "event_id",
                 "pmc_id",
@@ -32,34 +32,26 @@
             ],
             "validation_queries": [
                 {
+                    "comparison": "greater_than",
                     "description": "Check for amd-smi monitoring busy times",
-                    "query": "SELECT COUNT(*) as count FROM {table_name} event JOIN rocpd_info_pmc info ON event.pmc_id = info.id WHERE info.name = 'device_busy_mm'",
+                    "error_message": "Less than expected number of captured amd-smi mm-busy samples!",
                     "expected_result": 150,
-                    "comparison": "greater_than",
-                    "error_message": "Less than expected number of captured amd-smi mm-busy samples!"
+                    "query": "SELECT COUNT(*) as count FROM {table_name} event JOIN rocpd_info_pmc info ON event.pmc_id = info.id WHERE info.name = 'device_busy_mm'"
                 },
                 {
+                    "comparison": "greater_than",
                     "description": "Check for amd-smi monitoring GPU memory usage",
-                    "query": "SELECT COUNT(*) as count FROM {table_name} event JOIN rocpd_info_pmc info ON event.pmc_id = info.id WHERE info.name = 'device_memory_usage'",
+                    "error_message": "Less than expected number of captured amd-smi memory-usage samples!",
                     "expected_result": 150,
-                    "comparison": "greater_than",
-                    "error_message": "Less than expected number of captured amd-smi memory-usage samples!"
+                    "query": "SELECT COUNT(*) as count FROM {table_name} event JOIN rocpd_info_pmc info ON event.pmc_id = info.id WHERE info.name = 'device_memory_usage'"
                 },
                 {
-                    "description": "Check for amd-smi monitoring VCN activity",
-                    "query": "SELECT COUNT(*) as count FROM {table_name} event JOIN rocpd_info_pmc info ON event.pmc_id = info.id WHERE info.name = 'device_vcn_activity_0'",
-                    "expected_result": 150,
                     "comparison": "greater_than",
-                    "error_message": "Less than expected number of captured amd-smi vcn-activity samples!"
-                },
-                {
                     "description": "Check for amd-smi monitoring VCN activity",
-                    "query": "SELECT COUNT(*) as count FROM {table_name} event JOIN rocpd_info_pmc info ON event.pmc_id = info.id WHERE info.name LIKE 'device_vcn_activity_%' and event.value > 0",
+                    "error_message": "Less than expected activity in amd-smi vcn-activity samples!",
                     "expected_result": 100,
-                    "comparison": "greater_than",
-                    "error_message": "Less than expected activity in amd-smi vcn-activity samples!"
+                    "query": "SELECT COUNT(*) as count FROM {table_name} event JOIN rocpd_info_pmc info ON event.pmc_id = info.id WHERE info.name LIKE 'device_vcn_activity_%' and event.value > 0"
                 }
-
             ]
         }
     ]
