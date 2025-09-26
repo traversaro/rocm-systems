@@ -186,17 +186,6 @@ class GraphKernelArgManager : public amd::ReferenceCountedObject,
   using KernelArgImpl = device::Settings::KernelArgImpl;
 };
 
-// Add this before the GraphNode class (around line 188)
-struct BatchInfo {
-  size_t batch_id;              // Which batch contains this node
-  size_t start_index_in_batch;  // Start index of this node's packets in the batch
-  size_t end_index_in_batch;    // End index of this node's packets in the batch
-
-  BatchInfo() : batch_id(SIZE_MAX), start_index_in_batch(SIZE_MAX), end_index_in_batch(SIZE_MAX) {}
-  BatchInfo(size_t batch, size_t start, size_t end)
-    : batch_id(batch), start_index_in_batch(start), end_index_in_batch(end) {}
-};
-
 class GraphNode : public hipGraphNodeDOTAttribute {
  public:
   GraphNode(hipGraphNodeType type, const char* style = "", const char* shape = "",
@@ -473,7 +462,6 @@ class GraphNode : public hipGraphNodeDOTAttribute {
   }
   void SetDeviceId(int id) { dev_id_ = id; }
   int GetDeviceId() const { return dev_id_; }
-  BatchInfo& GetBatchInfo() { return batchInfo_; }
 
  protected:
   // Declare Graph and GraphExec as friends of node for simpler access to GraphNode fields
@@ -504,7 +492,6 @@ class GraphNode : public hipGraphNodeDOTAttribute {
   size_t kernargSegmentAlignment_ = 256;  //!< Kernel arg segment alignment
   int dev_id_;  //!< Device Id when node is created(dev id from capture stream/current device
                 //!< when explicitly added)
-  BatchInfo batchInfo_;  //!< Batch information
 };
 
 class GraphEventWaitNode : public GraphNode {
@@ -790,11 +777,6 @@ class Graph {
   void DecrementMemAllocNodeCount() { memalloc_nodes_--; }
   //! returns device object
   hip::Device* Device() { return device_; }
-  //! Virtual method to handle node enable/disable changes
-  virtual void OnNodeEnabledChanged(GraphNode* node, bool isEnabled) {
-    // Default implementation does nothing
-    // GraphExec will override this to handle packetBatches_ updates
-  }
 
  protected:
   int max_streams_ = 0;  //!< Maximum number of streams used in the graph launch
@@ -893,10 +875,6 @@ class GraphExec : public amd::ReferenceCountedObject, public Graph {
   void GetKernelArgSizeForGraph(std::unordered_map<int, size_t>& kernArgSizeForGraph);
   hipError_t EnqueueGraphWithSingleList(hip::Stream* hip_stream);
   bool TopologicalOrder() { return Graph::TopologicalOrder(topoOrder_); }
-  // Override to handle packetBatches_ updates when nodes are enabled/disabled
-  void OnNodeEnabledChanged(GraphNode* node, bool isEnabled) override {
-    auto err = UpdatePacketBatchesForNodeEnableDisable(node, isEnabled);
-  }
 
  protected:
   //! Topological order of the graph doesn't include nodes embedded as part of the child graph
@@ -908,15 +886,28 @@ class GraphExec : public amd::ReferenceCountedObject, public Graph {
   bool hasHiddenHeap_ = false;  //!< Hidden heap indicator for Kernel node
   bool repeatLaunch_ = false;
 
-  //! Structure for batch dispatch optimization - packets and kernel names in aligned memory
+  //! Structure for batch dispatch optimization with NOP packet support
   struct PacketBatch {
-    std::vector<uint8_t*> packets;
-    std::vector<std::string> kernelNames;
+    // Direct dispatch lists - always ready for launch
+    std::vector<uint8_t*> dispatchPackets;
+    std::vector<std::string> dispatchKernelNames;
+    // Original packets for re-enabling (NOP packets for disabled nodes)
+    std::vector<uint8_t*> originalPackets;
+    std::vector<std::string> originalKernelNames;
+    // Node tracking
+    struct NodeRange {
+      size_t startIndex;    // Start index in dispatchPackets
+      size_t packetCount;   // Number of packets for this node
+      bool enabled;         // Overall node state
+    };
+    std::vector<NodeRange> nodeRanges;
+    std::unordered_map<GraphNode*, size_t> nodeToRangeIndex;  // O(1) lookup
     size_t capturedNodeCount;  // Number of consecutive captured nodes in this batch
-
     PacketBatch() : capturedNodeCount(0) {}
-    PacketBatch(std::vector<uint8_t*>&& p, std::vector<std::string>&& k, size_t nodeCount)
-      : packets(std::move(p)), kernelNames(std::move(k)), capturedNodeCount(nodeCount) {}
+    // O(1) enable/disable operations
+    void setEnabled(GraphNode* node, bool enabled);
+    // Get NOP packet (cached for efficiency)
+    static uint8_t* getNOPPacket();
   };
 
   //! Batches of accumulated packets and kernel names for batch dispatch optimization

@@ -75,10 +75,6 @@ amd::Monitor GraphNode::WorkerThreadLock_{};
 
 void GraphNode::SetEnabled(unsigned int isEnabled) {
   isEnabled_ = isEnabled;
-  // Update packetBatches_ if this node is part of a GraphExec
-  if (parentGraph_ != nullptr) {
-    parentGraph_->OnNodeEnabledChanged(this, isEnabled != 0);
-  }
 }
 
 hipError_t GraphMemcpyNode1D::ValidateParams(void* dst, const void* src, size_t count,
@@ -406,6 +402,47 @@ void GraphExec::GetKernelArgSizeForGraph(std::unordered_map<int, size_t>& kernAr
     }
   }
 }
+#include <hsa/hsa.h>
+// ================================================================================================
+// NOP Packet Management
+uint8_t* GraphExec::PacketBatch::getNOPPacket() {
+  static uint8_t* nopPacket = nullptr;
+  if (nopPacket == nullptr) {
+    nopPacket = new uint8_t[64];
+    memset(nopPacket, 0, 64);
+    hsa_barrier_and_packet_t* barrier_packet =
+        reinterpret_cast<hsa_barrier_and_packet_t*>(nopPacket);
+    // Set up barrier packet with no dependencies (acts as NOP)
+    barrier_packet->header = (HSA_PACKET_TYPE_BARRIER_AND << HSA_PACKET_HEADER_TYPE) |
+                            (0 << HSA_PACKET_HEADER_BARRIER) |
+                            (HSA_FENCE_SCOPE_NONE << HSA_PACKET_HEADER_ACQUIRE_FENCE_SCOPE) |
+                            (HSA_FENCE_SCOPE_NONE << HSA_PACKET_HEADER_RELEASE_FENCE_SCOPE);
+  }
+  return nopPacket;
+}
+// ================================================================================================
+void GraphExec::PacketBatch::setEnabled(GraphNode* node, bool enabled) {
+  auto it = nodeToRangeIndex.find(node);
+  if (it == nodeToRangeIndex.end()) return;
+
+  NodeRange& range = nodeRanges[it->second];
+  range.enabled = enabled;
+
+  // Update dispatch list immediately - all packets for this node
+  for (size_t i = 0; i < range.packetCount; ++i) {
+    size_t packetIndex = range.startIndex + i;
+
+    if (enabled) {
+      // Restore original packet
+      dispatchPackets[packetIndex] = originalPackets[packetIndex];
+      dispatchKernelNames[packetIndex] = originalKernelNames[packetIndex];
+    } else {
+      // Replace with NOP packet (same type as original)
+      dispatchPackets[packetIndex] = getNOPPacket();
+      dispatchKernelNames[packetIndex] = "NOP";
+    }
+  }
+}
 
 // ================================================================================================
 hipError_t GraphExec::CaptureAndFormPacketsForGraph() {
@@ -432,36 +469,59 @@ hipError_t GraphExec::CaptureAndFormPacketsForGraph() {
     }
 
     if (node->GraphCaptureEnabled()) {
-      // Start of a potential batch - try to capture packets for this node
-      std::vector<uint8_t*> currentBatch;
-      std::vector<std::string> currentKernelNames;
-
-      // Collect packets from consecutive captured nodes
+      // Start of a new batch
+      PacketBatch newBatch;
       size_t j = i;
       size_t capturedNodeCount = 0;
+
+      // Collect packets from consecutive captured nodes
       while (j < topoOrder_.size() && topoOrder_[j]->GraphCaptureEnabled()) {
         auto& currentNode = topoOrder_[j];
-        auto currentBatchEndIndex = currentBatch.size();
-        status = currentNode->CaptureAndFormPacket(GetKernelArgManager(), &currentBatch,
-                                                             &currentKernelNames);
 
-        if (status != hipSuccess || currentBatch.empty()) {
+        // Capture packets for this node
+        std::vector<uint8_t*> nodePackets;
+        std::vector<std::string> nodeKernelNames;
+        status = currentNode->CaptureAndFormPacket(GetKernelArgManager(), &nodePackets,
+                                                   &nodeKernelNames);
+
+        if (status != hipSuccess || nodePackets.empty()) {
           LogError("Packet capture failed");
           return status;
         }
+
+        // Create NodeRange for this node
+        PacketBatch::NodeRange range;
+        range.startIndex = newBatch.dispatchPackets.size();
+        range.packetCount = nodePackets.size();
+        range.enabled = true;
+
+        // Add to dispatch lists (initially all enabled)
+        newBatch.dispatchPackets.insert(newBatch.dispatchPackets.end(),
+                                       nodePackets.begin(), nodePackets.end());
+        newBatch.dispatchKernelNames.insert(newBatch.dispatchKernelNames.end(),
+                                           nodeKernelNames.begin(), nodeKernelNames.end());
+
+        // Store originals for re-enabling
+        newBatch.originalPackets.insert(newBatch.originalPackets.end(),
+                                       nodePackets.begin(), nodePackets.end());
+        newBatch.originalKernelNames.insert(newBatch.originalKernelNames.end(),
+                                           nodeKernelNames.begin(), nodeKernelNames.end());
+
+        // Store node mapping
+        newBatch.nodeRanges.push_back(range);
+        newBatch.nodeToRangeIndex[currentNode] = newBatch.nodeRanges.size() - 1;
+
         // Mark this node as successfully captured
         nodeCaptureStatus_[j] = true;
-        currentNode->GetBatchInfo().batch_id = packetBatches_.size();
-        currentNode->GetBatchInfo().start_index_in_batch = currentBatchEndIndex;
-        currentNode->GetBatchInfo().end_index_in_batch = currentBatch.size();
         ++j;
         ++capturedNodeCount;
       }
 
+      newBatch.capturedNodeCount = capturedNodeCount;
+
       // Add the batch if it has packets
-      if (!currentBatch.empty()) {
-        packetBatches_.emplace_back(std::move(currentBatch), std::move(currentKernelNames),
-                                    capturedNodeCount);
+      if (!newBatch.dispatchPackets.empty()) {
+        packetBatches_.emplace_back(std::move(newBatch));
       }
 
       // Skip the nodes we just processed, the index will be incremented by the loop
@@ -478,7 +538,6 @@ hipError_t GraphExec::CaptureAndFormPacketsForGraph() {
       }
     }
   }
-
   return status;
 }
 
@@ -524,139 +583,59 @@ hipError_t GraphExec::CaptureAQLPackets() {
 
 // ================================================================================================
 hipError_t GraphExec::UpdateAQLPacket(hip::GraphNode* node) {
-  hipError_t status = hipSuccess;
-  if (max_streams_ == 1) {
-    BatchInfo& batchInfo = node->GetBatchInfo();
-    std::vector<uint8_t*> currentBatch;
-    std::vector<std::string> currentKernelNames;
-    status = node->CaptureAndFormPacket(kernArgManager_, &currentBatch, &currentKernelNames);
-    if (status != hipSuccess) {
-      return status;
-    }
-    // if no of packets are not changed.
-    if (batchInfo.batch_id < packetBatches_.size() && 
-        currentBatch.size() == batchInfo.end_index_in_batch - batchInfo.start_index_in_batch) {
-      for (size_t i = 0; i < currentBatch.size(); i++) {
-        packetBatches_[batchInfo.batch_id].packets[batchInfo.start_index_in_batch + i] = currentBatch[i];
-        packetBatches_[batchInfo.batch_id].kernelNames[batchInfo.start_index_in_batch + i] = currentKernelNames[i];
+  if (max_streams_ != 1 || !node->GraphCaptureEnabled()) {
+    return hipSuccess;
+  }
+
+  // Find which batch contains this node and update it
+  for (auto& batch : packetBatches_) {
+    auto it = batch.nodeToRangeIndex.find(node);
+    if (it != batch.nodeToRangeIndex.end()) {
+      // Found the batch containing this node - update packets
+      PacketBatch::NodeRange& range = batch.nodeRanges[it->second];
+
+      // Capture new packets for this node
+      std::vector<uint8_t*> newPackets;
+      std::vector<std::string> newKernelNames;
+      hipError_t status = node->CaptureAndFormPacket(kernArgManager_, &newPackets, &newKernelNames);
+      if (status != hipSuccess) {
+        return status;
       }
-    } else if (batchInfo.batch_id < packetBatches_.size()) {
-      // remove existing packets of node from batch
-      auto& batch = packetBatches_[batchInfo.batch_id];
-      batch.packets.erase(batch.packets.begin() + batchInfo.start_index_in_batch,
-                          batch.packets.begin() + batchInfo.end_index_in_batch);
-      batch.kernelNames.erase(batch.kernelNames.begin() + batchInfo.start_index_in_batch,
-                              batch.kernelNames.begin() + batchInfo.end_index_in_batch); 
-      // Insert new packets at the same position
-      batch.packets.insert(batch.packets.begin() + batchInfo.start_index_in_batch,
-                           currentBatch.begin(), currentBatch.end());
-      batch.kernelNames.insert(batch.kernelNames.begin() + batchInfo.start_index_in_batch,
-                               currentKernelNames.begin(), currentKernelNames.end());
-      // Update batch info for the current node
-      batchInfo.end_index_in_batch = batchInfo.start_index_in_batch + currentBatch.size();
-      // Update batch info for subsequent nodes in the same batch
-      for (size_t i = 0; i < topoOrder_.size(); ++i) {
-        if (topoOrder_[i] != node) {
-          BatchInfo& otherBatchInfo = topoOrder_[i]->GetBatchInfo();
-          if (otherBatchInfo.batch_id == batchInfo.batch_id &&
-              otherBatchInfo.start_index_in_batch >= batchInfo.end_index_in_batch) {
-            // Adjust indices for nodes that come after the updated node in the same batch
-            size_t indexDiff = currentBatch.size() - (batchInfo.end_index_in_batch - batchInfo.start_index_in_batch);
-            otherBatchInfo.start_index_in_batch += indexDiff;
-            otherBatchInfo.end_index_in_batch += indexDiff;
-          }
+
+      // Update original packets and dispatch packets
+      for (size_t i = 0; i < range.packetCount && i < newPackets.size(); ++i) {
+        size_t packetIndex = range.startIndex + i;
+        batch.originalPackets[packetIndex] = newPackets[i];
+        batch.originalKernelNames[packetIndex] = newKernelNames[i];
+
+        // Update dispatch packet if node is enabled
+        if (range.enabled) {
+          batch.dispatchPackets[packetIndex] = newPackets[i];
+          batch.dispatchKernelNames[packetIndex] = newKernelNames[i];
         }
       }
-    } else {
-      // if there is no previous record or batch_id is invalid, append the new batch
-      packetBatches_.emplace_back(std::move(currentBatch), std::move(currentKernelNames), 1);
-      batchInfo.batch_id = packetBatches_.size() - 1;
-      batchInfo.start_index_in_batch = 0;
-      batchInfo.end_index_in_batch = currentBatch.size();
+      return hipSuccess;
     }
   }
-  return status;
+  return hipSuccess; // Node not in any batch
 }
 
 // ================================================================================================
 hipError_t GraphExec::UpdatePacketBatchesForNodeEnableDisable(hip::GraphNode* node, bool isEnabled) {
-  hipError_t status = hipSuccess;
-  if (max_streams_ != 1 && node->GraphCaptureEnabled()) {
-    // Only handle single stream case for now
+  if (max_streams_ != 1 || !node->GraphCaptureEnabled()) {
+    // Only handle single stream case with captured nodes
     return hipSuccess;
   }
-  BatchInfo& batchInfo = node->GetBatchInfo();
-  // If node is not in any batch, no action needed
-  if (batchInfo.batch_id >= packetBatches_.size()) {
-    return hipSuccess;
-  }
-  if (isEnabled) {
-    // Node is being enabled - need to add packets back to the batch
-    if (node->GraphCaptureEnabled()) {
-      std::vector<uint8_t*> currentBatch;
-      std::vector<std::string> currentKernelNames;
-      status = node->CaptureAndFormPacket(kernArgManager_, &currentBatch, &currentKernelNames);
-      if (status != hipSuccess || currentBatch.empty()) {
-        LogError("Packet capture failed for enabled node");
-        return status;
-      }
-      // Insert packets at the original position in the batch
-      auto& batch = packetBatches_[batchInfo.batch_id];
-      batch.packets.insert(batch.packets.begin() + batchInfo.start_index_in_batch,
-                          currentBatch.begin(), currentBatch.end());
-      batch.kernelNames.insert(batch.kernelNames.begin() + batchInfo.start_index_in_batch,
-                              currentKernelNames.begin(), currentKernelNames.end());
-      // Update batch info for the current node
-      batchInfo.end_index_in_batch = batchInfo.start_index_in_batch + currentBatch.size();
-      // Update batch info for subsequent nodes in the same batch
-      for (size_t i = 0; i < topoOrder_.size(); ++i) {
-        if (topoOrder_[i] != node) {
-          BatchInfo& otherBatchInfo = topoOrder_[i]->GetBatchInfo();
-          if (otherBatchInfo.batch_id == batchInfo.batch_id &&
-              otherBatchInfo.start_index_in_batch >= batchInfo.end_index_in_batch) {
-            // Adjust indices for nodes that come after the enabled node in the same batch
-            size_t indexDiff = currentBatch.size();
-            otherBatchInfo.start_index_in_batch += indexDiff;
-            otherBatchInfo.end_index_in_batch += indexDiff;
-          }
-        }
-      }
-      // Update the captured node count for this batch
-      batch.capturedNodeCount++;
-    }
-  } else {
-    // Node is being disabled - need to remove packets from the batch
-    if (batchInfo.start_index_in_batch < batchInfo.end_index_in_batch) {
-      auto& batch = packetBatches_[batchInfo.batch_id];
-      // Calculate the number of packets to remove
-      size_t packetCount = batchInfo.end_index_in_batch - batchInfo.start_index_in_batch;
-      // Remove packets from the batch
-      batch.packets.erase(batch.packets.begin() + batchInfo.start_index_in_batch,
-                         batch.packets.begin() + batchInfo.end_index_in_batch);
-      batch.kernelNames.erase(batch.kernelNames.begin() + batchInfo.start_index_in_batch,
-                             batch.kernelNames.begin() + batchInfo.end_index_in_batch);
-      // Update batch info for subsequent nodes in the same batch
-      for (size_t i = 0; i < topoOrder_.size(); ++i) {
-        if (topoOrder_[i] != node) {
-          BatchInfo& otherBatchInfo = topoOrder_[i]->GetBatchInfo();
-          if (otherBatchInfo.batch_id == batchInfo.batch_id &&
-              otherBatchInfo.start_index_in_batch >= batchInfo.end_index_in_batch) {
-            // Adjust indices for nodes that come after the disabled node in the same batch
-            otherBatchInfo.start_index_in_batch -= packetCount;
-            otherBatchInfo.end_index_in_batch -= packetCount;
-          }
-        }
-      }
-      // Update the captured node count for this batch
-      if (batch.capturedNodeCount > 0) {
-        batch.capturedNodeCount--;
-      }
-      // Reset the batch info for the disabled node
-      batchInfo.start_index_in_batch = SIZE_MAX;
-      batchInfo.end_index_in_batch = SIZE_MAX;
+  // Find which batch contains this node and update it
+  for (auto& batch : packetBatches_) {
+    auto it = batch.nodeToRangeIndex.find(node);
+    if (it != batch.nodeToRangeIndex.end()) {
+      // Found the batch containing this node - update it
+      batch.setEnabled(node, isEnabled);
+      return hipSuccess;
     }
   }
-  return status;
+  return hipSuccess; // Node not in any batch
 }
 
 // ================================================================================================
@@ -683,23 +662,21 @@ hipError_t GraphExec::EnqueueGraphWithSingleList(hip::Stream* hip_stream) {
   for (size_t i = 0; i < topoOrder_.size(); ++i) {
     auto& node = topoOrder_[i];
 
-    // Skip disabled nodes
-    if (node->GetEnabled() == 0) {
-      continue;
-    }
-
     if (!node->GraphCaptureEnabled()) {
-      // Node doesn't support capture - execute individually
-      node->SetStream(hip_stream);
-      status = node->CreateCommand(node->GetQueue());
-      node->EnqueueCommands(hip_stream);
+      // Node doesn't support capture - execute individually if enabled
+      if (node->GetEnabled() != 0) {
+        node->SetStream(hip_stream);
+        status = node->CreateCommand(node->GetQueue());
+        node->EnqueueCommands(hip_stream);
+      }
     } else if (i < nodeCaptureStatus_.size() && nodeCaptureStatus_[i]) {
-      // Node was successfully captured - find which batch it belongs to
-      // and dispatch the entire batch
+      // Node was successfully captured - dispatch the entire batch
       if (batchIndex < packetBatches_.size()) {
-        // Dispatch this batch
+        // Direct dispatch - no processing needed!
         bool batchStatus = hip_stream->vdev()->dispatchAqlPacketBatch(
-            packetBatches_[batchIndex].packets, packetBatches_[batchIndex].kernelNames, accumulate);
+            packetBatches_[batchIndex].dispatchPackets,
+            packetBatches_[batchIndex].dispatchKernelNames,
+            accumulate);
         if (!batchStatus) {
           status = hipErrorUnknown;
           accumulate->release();
@@ -707,7 +684,6 @@ hipError_t GraphExec::EnqueueGraphWithSingleList(hip::Stream* hip_stream) {
         }
 
         // Skip all consecutive captured nodes that belong to this batch
-        // Use the tracked node count to skip directly instead of parsing one by one
         i += packetBatches_[batchIndex].capturedNodeCount - 1;  // -1 because loop will increment
 
         ++batchIndex;
