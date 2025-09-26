@@ -73,10 +73,6 @@ amd::Monitor UserObject::UserObjectLock_{};
 // Guards mem map add/remove against work thread
 amd::Monitor GraphNode::WorkerThreadLock_{};
 
-void GraphNode::SetEnabled(unsigned int isEnabled) {
-  isEnabled_ = isEnabled;
-}
-
 hipError_t GraphMemcpyNode1D::ValidateParams(void* dst, const void* src, size_t count,
                                              hipMemcpyKind kind) {
   hipError_t status = ihipMemcpy_validate(dst, src, count, kind);

@@ -424,7 +424,7 @@ class GraphNode : public hipGraphNodeDOTAttribute {
     return (std::to_string(id_) + "\n" + label_);
   }
   unsigned int GetEnabled() const { return isEnabled_; }
-  void SetEnabled(unsigned int isEnabled);
+  void SetEnabled(unsigned int isEnabled) { isEnabled_ = isEnabled; }
   // Returns true if capture is enabled for the current node.
   virtual bool GraphCaptureEnabled() {
     bool isGraphCapture = false;
