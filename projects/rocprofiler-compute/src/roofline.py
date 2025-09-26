@@ -240,6 +240,127 @@ class Roofline:
 
         return df
 
+    def _add_bounded_regions_to_figure(
+        self,
+        fig: go.Figure,
+        all_ceiling_data: dict[str, dict],
+        kernel_names_data: Optional[dict] = None
+    ) -> go.Figure:
+        """
+        Add memory-bound and compute-bound regions to the figure based on 
+        the minimum peak performance and bandwidth across all datatypes.
+        
+        The regions are defined by:
+        - Memory-bound: Area below the minimum bandwidth line up to the intersection point
+        - Compute-bound: Area below the minimum peak performance from intersection to end of plot
+        """
+        # Determine subplot configuration
+        subplot_row = 1 if kernel_names_data is not None else None
+        subplot_kwargs = {"row": subplot_row, "col": 1} if subplot_row else {}
+        
+        # Find the minimum peak performance and its x_end value across all datatypes
+        min_peak_perf = float("inf")
+        peak_perf_x_end = 0
+        
+        for dt, ceiling_data in all_ceiling_data.items():
+            # Check VALU peak
+            if "valu" in ceiling_data and ceiling_data["valu"]:
+                valu_perf = ceiling_data["valu"][2]
+                valu_x_end = ceiling_data["valu"][0][1]
+                if valu_perf < min_peak_perf:
+                    min_peak_perf = valu_perf
+                    peak_perf_x_end = valu_x_end
+                elif valu_perf == min_peak_perf:
+                    # If equal, take the maximum x_end
+                    peak_perf_x_end = max(peak_perf_x_end, valu_x_end)
+            
+            # Check MFMA peak
+            if "mfma" in ceiling_data and ceiling_data["mfma"]:
+                mfma_perf = ceiling_data["mfma"][2]
+                mfma_x_end = ceiling_data["mfma"][0][1]
+                if mfma_perf < min_peak_perf:
+                    min_peak_perf = mfma_perf
+                    peak_perf_x_end = mfma_x_end
+                elif mfma_perf == min_peak_perf:
+                    # If equal, take the maximum x_end
+                    peak_perf_x_end = max(peak_perf_x_end, mfma_x_end)
+        
+        # Find the minimum bandwidth across all datatypes and cache levels
+        min_bandwidth = float("inf")
+        min_bandwidth_ceiling = None
+        
+        mem_level_config = self.__run_parameters.get("mem_level", "ALL")
+        cache_hierarchy = (
+            ["HBM", "L2", "L1", "LDS"]
+            if mem_level_config == "ALL"
+            else (
+                mem_level_config
+                if isinstance(mem_level_config, list)
+                else [mem_level_config]
+            )
+        )
+        
+        for dt, ceiling_data in all_ceiling_data.items():
+            for level in cache_hierarchy:
+                key = level.lower()
+                if key in ceiling_data and ceiling_data[key]:
+                    line_data = ceiling_data[key]
+                    if isinstance(line_data, (list, tuple)) and len(line_data) >= 3:
+                        bw = line_data[2]  # Bandwidth value
+                        if bw < min_bandwidth:
+                            min_bandwidth = bw
+                            min_bandwidth_ceiling = line_data
+        
+        # Only add bounded regions if we have valid data
+        if (min_peak_perf != float("inf") and 
+            min_bandwidth != float("inf") and 
+            peak_perf_x_end > 0):
+            
+            # Calculate intersection point
+            x_intersect = min_peak_perf / min_bandwidth
+            
+            x_start = 0.01
+            x_end = peak_perf_x_end
+            
+            # Only draw regions if intersection is within the plot range
+            if x_start < x_intersect < x_end:
+                fig.add_trace(
+                    go.Scatter(
+                        x=[x_start, x_intersect],
+                        y=[min_bandwidth * x_start, min_peak_perf],
+                        fill="tozeroy",
+                        mode="lines",
+                        line_width=0,
+                        fillcolor="rgba(0, 100, 255, 0.15)",
+                        hoverinfo="skip",
+                        showlegend=True,
+                        name="Memory-Bound",
+                    ),
+                    **subplot_kwargs,
+                )
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=[x_intersect, x_end],
+                        y=[min_peak_perf, min_peak_perf],
+                        fill="tozeroy",
+                        mode="lines",
+                        line_width=0,
+                        fillcolor="rgba(255, 140, 0, 0.15)",
+                        hoverinfo="skip",
+                        showlegend=True,
+                        name="Compute-Bound",
+                    ),
+                    **subplot_kwargs,
+                )
+        else:
+            console_debug(
+                f"Bounded regions not added: min_peak_perf={min_peak_perf}, "
+                f"min_bandwidth={min_bandwidth}, peak_perf_x_end={peak_perf_x_end}"
+            )
+        
+        return fig
+
     @demarcate
     def empirical_roofline(
         self, ret_df: dict[str, pd.DataFrame]
@@ -282,6 +403,10 @@ class Roofline:
         ops_figure = flops_figure = None
         ops_dt_list = flops_dt_list = kernel_list = ""
 
+        # collect ceiling data for all datatypes to find global minimums
+        all_ops_ceiling_data = {}
+        all_flops_ceiling_data = {}
+
         for dt in self.__run_parameters.get("roofline_data_type", []):
             gpu_arch = getattr(self.__mspec, "gpu_arch", "unknown_arch")
             if (
@@ -300,21 +425,51 @@ class Roofline:
 
             if ops_flops == "Ops":
                 if ops_figure:
-                    ops_figure = self.generate_plot(dtype=str(dt), fig=ops_figure)
+                    ops_figure = self.generate_plot(
+                        dtype=str(dt), 
+                        fig=ops_figure,
+                        add_bounded_regions=False # don't add regions yet
+                    )
                 else:
                     ops_figure = self.generate_plot(
-                        dtype=str(dt), kernel_names_data=kernel_names_data
+                        dtype=str(dt), 
+                        kernel_names_data=kernel_names_data,
+                        add_bounded_regions=False # don't add regions yet
                     )
                 ops_dt_list += "_" + str(dt)
+                # store ceiling data for this datatype
+                all_ops_ceiling_data[str(dt)] = self.__ceiling_data
 
             if ops_flops == "Flops":
                 if flops_figure:
-                    flops_figure = self.generate_plot(dtype=str(dt), fig=flops_figure)
+                    flops_figure = self.generate_plot(
+                        dtype=str(dt), 
+                        fig=flops_figure,
+                        add_bounded_regions=False # don't add regions yet
+                    )
                 else:
                     flops_figure = self.generate_plot(
-                        dtype=str(dt), kernel_names_data=kernel_names_data
+                        dtype=str(dt), 
+                        kernel_names_data=kernel_names_data,
+                        add_bounded_regions=False # don't add regions yet
                     )
                 flops_dt_list += "_" + str(dt)
+                # Store ceiling data for this datatype
+                all_flops_ceiling_data[str(dt)] = self.__ceiling_data
+        
+        # Add bounded regions using the minimum values across all datatypes
+        if ops_figure and all_ops_ceiling_data:
+            ops_figure = self._add_bounded_regions_to_figure(
+                fig=ops_figure,
+                all_ceiling_data=all_ops_ceiling_data,
+                kernel_names_data=kernel_names_data
+            )
+        if flops_figure and all_flops_ceiling_data:
+            flops_figure = self._add_bounded_regions_to_figure(
+                fig=flops_figure,
+                all_ceiling_data=all_flops_ceiling_data,
+                kernel_names_data=kernel_names_data
+            )
 
         # Output will be different depending on interaction type:
         # Save PDFs if we're in "standalone roofline" mode,
@@ -384,175 +539,188 @@ class Roofline:
         dtype: str,
         fig: Optional[go.Figure] = None,
         kernel_names_data: Optional[dict] = None,
+        add_bounded_regions: bool = True,
     ) -> go.Figure:
         """
         Create graph object from ai_data (coordinate points) and ceiling_data
         (peak FLOP and BW) data.
         """
-        if fig is None and kernel_names_data is None:
-            fig = go.Figure()
-            skipAI = False
-        elif kernel_names_data is not None:
-            skipAI = True  # Don't repeat AI plotting
+        is_new_figure = (fig is None)
+        has_kernel_names = (kernel_names_data is not None and is_new_figure)
+        skipAI = not is_new_figure
+        
+        subplot_row = None
+        total_figure_height = 600  # default height
 
-            raw_kernel_names = kernel_names_data.get("kernel_names", [])
-            num_kernels = len(raw_kernel_names)
+        if is_new_figure:
+            if has_kernel_names:
+                # First datatype with kernel names - create subplot structure
+                raw_kernel_names = kernel_names_data.get("kernel_names", [])
+                num_kernels = len(raw_kernel_names)
 
-            # wrap text for each kernel name
-            wrapped_texts = [
-                wrap_text(shorten_demangled_name(name, 1)) for name in raw_kernel_names
-            ]
+                # wrap text for each kernel name
+                wrapped_texts = [
+                    wrap_text(shorten_demangled_name(name, 1)) for name in raw_kernel_names
+                ]
 
-            # calc lines per kernel (including the base line)
-            lines_per_kernel = [text.count("<br>") + 1 for text in wrapped_texts]
-            total_lines = sum(lines_per_kernel)
+                # calc lines per kernel (including the base line)
+                lines_per_kernel = [text.count("<br>") + 1 for text in wrapped_texts]
+                total_lines = sum(lines_per_kernel)
 
-            # fixed heights in pixels
-            SCATTER_PLOT_HEIGHT = 400  # fixed height for roofline plot
-            SUBPLOT_TITLE_HEIGHT = 40  # space for subplot titles
-            VERTICAL_SPACING = 90  # space between subplots
+                # fixed heights in pixels
+                SCATTER_PLOT_HEIGHT = 400  # fixed height for roofline plot
+                SUBPLOT_TITLE_HEIGHT = 40  # space for subplot titles
+                VERTICAL_SPACING = 90  # space between subplots
 
-            # dynamic kernel section sizing in pixels
-            PIXELS_PER_TEXT_LINE = 20  # height for each line of wrapped text
-            PIXELS_PER_KERNEL_PADDING = 10  # padding between kernels
-            HEADER_HEIGHT = 30  # space for "Symbol" and "Kernel Name" headers
-            TOP_BOTTOM_PADDING = 40  # combined top and bottom padding
+                # dynamic kernel section sizing in pixels
+                PIXELS_PER_TEXT_LINE = 20  # height for each line of wrapped text
+                PIXELS_PER_KERNEL_PADDING = 10  # padding between kernels
+                HEADER_HEIGHT = 30  # space for "Symbol" and "Kernel Name" headers
+                TOP_BOTTOM_PADDING = 40  # combined top and bottom padding
 
-            kernel_text_height = total_lines * PIXELS_PER_TEXT_LINE
-            kernel_padding_height = (
-                (num_kernels - 1) * PIXELS_PER_KERNEL_PADDING if num_kernels > 1 else 0
-            )
-            kernel_section_height = (
-                kernel_text_height
-                + kernel_padding_height
-                + HEADER_HEIGHT
-                + TOP_BOTTOM_PADDING
-            )
+                kernel_text_height = total_lines * PIXELS_PER_TEXT_LINE
+                kernel_padding_height = (
+                    (num_kernels - 1) * PIXELS_PER_KERNEL_PADDING if num_kernels > 1 else 0
+                )
+                kernel_section_height = (
+                    kernel_text_height
+                    + kernel_padding_height
+                    + HEADER_HEIGHT
+                    + TOP_BOTTOM_PADDING
+                )
 
-            total_figure_height = (
-                kernel_section_height
-                + SCATTER_PLOT_HEIGHT
-                + SUBPLOT_TITLE_HEIGHT
-                + VERTICAL_SPACING
-            )
+                total_figure_height = (
+                    kernel_section_height
+                    + SCATTER_PLOT_HEIGHT
+                    + SUBPLOT_TITLE_HEIGHT
+                    + VERTICAL_SPACING
+                )
 
-            kernel_subplot_ratio = kernel_section_height / (
-                kernel_section_height + SCATTER_PLOT_HEIGHT
-            )
-            scatter_subplot_ratio = 1 - kernel_subplot_ratio
+                kernel_subplot_ratio = kernel_section_height / (
+                    kernel_section_height + SCATTER_PLOT_HEIGHT
+                )
+                scatter_subplot_ratio = 1 - kernel_subplot_ratio
 
-            kernel_subplot_ratio = min(0.7, max(0.2, kernel_subplot_ratio))
-            scatter_subplot_ratio = 1 - kernel_subplot_ratio
+                kernel_subplot_ratio = min(0.7, max(0.2, kernel_subplot_ratio))
+                scatter_subplot_ratio = 1 - kernel_subplot_ratio
 
-            fig = make_subplots(
-                rows=2,
-                cols=1,
-                row_heights=[scatter_subplot_ratio, kernel_subplot_ratio],
-                subplot_titles=[
-                    f"Roofline Analysis ({dtype})",
-                    "Kernel Names and Corresponding Markers",
-                ],
-                vertical_spacing=VERTICAL_SPACING
-                / total_figure_height,  # Convert to ratio
-                specs=[[{"type": "scatter"}], [{"type": "scatter"}]],
-            )
+                fig = make_subplots(
+                    rows=2,
+                    cols=1,
+                    row_heights=[scatter_subplot_ratio, kernel_subplot_ratio],
+                    subplot_titles=[
+                        f"Roofline Analysis ({dtype})",
+                        "Kernel Names and Corresponding Markers",
+                    ],
+                    vertical_spacing=VERTICAL_SPACING / total_figure_height,
+                    specs=[[{"type": "scatter"}], [{"type": "scatter"}]],
+                )
 
-            SUBPLOT_LINE_HEIGHT = 1.0  # height per line in subplot coordinates
-            SUBPLOT_KERNEL_PADDING = (
-                0.5  # padding between kernels in subplot coordinates
-            )
-            SUBPLOT_HEADER_SPACE = 1.5  # space for headers in subplot coordinates
-            SUBPLOT_PADDING = 0.5  # top/bottom padding
+                # Add kernel symbols and names to the second subplot
+                SUBPLOT_LINE_HEIGHT = 1.0
+                SUBPLOT_KERNEL_PADDING = 0.5
+                SUBPLOT_HEADER_SPACE = 1.5
+                SUBPLOT_PADDING = 0.5
 
-            # calc positions in subplot coordinate system
-            subplot_content_height = (
-                total_lines * SUBPLOT_LINE_HEIGHT
-                + (num_kernels - 1) * SUBPLOT_KERNEL_PADDING
-                + SUBPLOT_HEADER_SPACE
-                + 2 * SUBPLOT_PADDING
-            )
+                subplot_content_height = (
+                    total_lines * SUBPLOT_LINE_HEIGHT
+                    + (num_kernels - 1) * SUBPLOT_KERNEL_PADDING
+                    + SUBPLOT_HEADER_SPACE
+                    + 2 * SUBPLOT_PADDING
+                )
 
-            # calc y-positions for each kernel entry
-            entry_y_positions = []
-            current_y = subplot_content_height - SUBPLOT_HEADER_SPACE - SUBPLOT_PADDING
+                entry_y_positions = []
+                current_y = subplot_content_height - SUBPLOT_HEADER_SPACE - SUBPLOT_PADDING
 
-            for i in range(num_kernels):
-                kernel_height = lines_per_kernel[i] * SUBPLOT_LINE_HEIGHT
-                center_y = current_y - (kernel_height / 2)
-                entry_y_positions.append(center_y)
-                current_y -= kernel_height + SUBPLOT_KERNEL_PADDING
+                for i in range(num_kernels):
+                    kernel_height = lines_per_kernel[i] * SUBPLOT_LINE_HEIGHT
+                    center_y = current_y - (kernel_height / 2)
+                    entry_y_positions.append(center_y)
+                    current_y -= kernel_height + SUBPLOT_KERNEL_PADDING
 
-            symbols_list = [SYMBOLS[i % len(SYMBOLS)] for i in range(num_kernels)]
-            fig.add_trace(
-                go.Scatter(
-                    x=[0.05] * num_kernels,
-                    y=entry_y_positions,
-                    mode="markers",
-                    marker=dict(
-                        symbol=symbols_list,
-                        size=11,
-                        color="blue",
-                        line=dict(width=1, color="black"),
+                symbols_list = [SYMBOLS[i % len(SYMBOLS)] for i in range(num_kernels)]
+                fig.add_trace(
+                    go.Scatter(
+                        x=[0.05] * num_kernels,
+                        y=entry_y_positions,
+                        mode="markers",
+                        marker=dict(
+                            symbol=symbols_list,
+                            size=11,
+                            color="blue",
+                            line=dict(width=1, color="black"),
+                        ),
+                        showlegend=False,
+                        hoverinfo="skip",
                     ),
-                    showlegend=False,
-                    hoverinfo="skip",
-                ),
-                row=2,
-                col=1,
-            )
-
-            for i, wrapped_text in enumerate(wrapped_texts):
-                fig.add_annotation(
-                    x=0.1,
-                    y=entry_y_positions[i],
-                    text=wrapped_text,
-                    showarrow=False,
-                    xanchor="left",
-                    yanchor="middle",
-                    align="left",
-                    font=dict(size=10, color="black"),
                     row=2,
                     col=1,
                 )
 
-            header_y = (
-                subplot_content_height - SUBPLOT_PADDING - (SUBPLOT_HEADER_SPACE / 2)
-            )
+                for i, wrapped_text in enumerate(wrapped_texts):
+                    fig.add_annotation(
+                        x=0.1,
+                        y=entry_y_positions[i],
+                        text=wrapped_text,
+                        showarrow=False,
+                        xanchor="left",
+                        yanchor="middle",
+                        align="left",
+                        font=dict(size=10, color="black"),
+                        row=2,
+                        col=1,
+                    )
 
-            fig.add_annotation(
-                x=0.05,
-                y=header_y,
-                text="<b>Symbol</b>",
-                showarrow=False,
-                xanchor="center",
-                yanchor="middle",
-                font=dict(size=11, color="black"),
-                row=2,
-                col=1,
-            )
-            fig.add_annotation(
-                x=0.1,
-                y=header_y,
-                text="<b>Kernel Name</b>",
-                showarrow=False,
-                xanchor="left",
-                yanchor="middle",
-                font=dict(size=11, color="black"),
-                row=2,
-                col=1,
-            )
+                header_y = (
+                    subplot_content_height - SUBPLOT_PADDING - (SUBPLOT_HEADER_SPACE / 2)
+                )
 
-            fig.update_xaxes(
-                visible=False, range=[0, 1], row=2, col=1
-            )  # Changed from row=1 to row=2
-            fig.update_yaxes(
-                visible=False, range=[0, subplot_content_height], row=2, col=1
-            )
+                fig.add_annotation(
+                    x=0.05,
+                    y=header_y,
+                    text="<b>Symbol</b>",
+                    showarrow=False,
+                    xanchor="center",
+                    yanchor="middle",
+                    font=dict(size=11, color="black"),
+                    row=2,
+                    col=1,
+                )
+                fig.add_annotation(
+                    x=0.1,
+                    y=header_y,
+                    text="<b>Kernel Name</b>",
+                    showarrow=False,
+                    xanchor="left",
+                    yanchor="middle",
+                    font=dict(size=11, color="black"),
+                    row=2,
+                    col=1,
+                )
 
-            skipAI = False
+                fig.update_xaxes(visible=False, range=[0, 1], row=2, col=1)
+                fig.update_yaxes(
+                    visible=False, range=[0, subplot_content_height], row=2, col=1
+                )
+
+                subplot_row = 1
+                skipAI = False
+                
+            else:
+                # New figure without kernel names
+                fig = go.Figure()
+                skipAI = False
         else:
-            skipAI = True  # Don't repeat AI plotting
-            total_figure_height = 600
+            # Adding to existing figure
+            # check if the existing figure has subplots by looking at its structure
+            # if it has subplots, we need to add to row 1
+            if hasattr(fig, '_grid_ref') and fig._grid_ref is not None:
+                subplot_row = 1
+                # Don't recreate the subplot structure, just use existing
+                # the total_figure_height should be preserved from the original figure
+                if hasattr(fig, 'layout') and hasattr(fig.layout, 'height'):
+                    total_figure_height = fig.layout.height
+            skipAI = True  # Don't repeat AI plotting for additional datatypes
 
         plot_mode = "lines+text" if self.__run_parameters["is_standalone"] else "lines"
 
@@ -565,7 +733,6 @@ class Roofline:
 
         ops_flops = "OP" if dtype.startswith("I") else "FLOP"  # For printing purposes
 
-        subplot_row = 1 if kernel_names_data is not None else None
         subplot_kwargs = {"row": subplot_row, "col": 1} if subplot_row else {}
 
         #######################
@@ -732,37 +899,54 @@ class Roofline:
             )
 
         # Set layout for roofline subplot or main plot
-        if subplot_row:
-            fig.update_xaxes(
-                type="log",
-                autorange=True,
-                title_text=f"Arithmetic Intensity ({ops_flops}s/Byte)",
-                row=subplot_row,
-                col=1,
-            )
-            fig.update_yaxes(
-                type="log",
-                autorange=True,
-                title_text=f"Performance (G{ops_flops}/sec)",
-                row=subplot_row,
-                col=1,
-            )
-        else:
-            fig.update_layout(
-                xaxis_title=f"Arithmetic Intensity ({ops_flops}s/Byte)",
-                yaxis_title=f"Performance (G{ops_flops}/sec)",
-                hovermode="x unified",
-                margin=dict(l=50, r=50, b=50, t=50, pad=7),
-            )
-            fig.update_xaxes(type="log", autorange=True)
-            fig.update_yaxes(type="log", autorange=True)
-
-        # Set the final figure height
-        fig.update_layout(
-            height=int(total_figure_height),
-            hovermode="x unified",
-            margin=dict(l=50, r=50, b=50, t=50, pad=7),
-        )
+        if is_new_figure:
+            if subplot_row:
+                # Update axes for subplot
+                fig.update_xaxes(
+                    type="log",
+                    autorange=True,
+                    title_text=f"Arithmetic Intensity ({ops_flops}s/Byte)",
+                    row=subplot_row,
+                    col=1,
+                )
+                fig.update_yaxes(
+                    type="log",
+                    autorange=True,
+                    title_text=f"Performance (G{ops_flops}/sec)",
+                    row=subplot_row,
+                    col=1,
+                )
+                fig.update_layout(
+                    height=int(total_figure_height),
+                    hovermode="x unified",
+                    margin=dict(l=50, r=50, b=50, t=50, pad=7),
+                )
+            else:
+                # Simple figure without subplots
+                fig.update_layout(
+                    xaxis_title=f"Arithmetic Intensity ({ops_flops}s/Byte)",
+                    yaxis_title=f"Performance (G{ops_flops}/sec)",
+                    xaxis_type="log",
+                    yaxis_type="log",
+                    xaxis_autorange=True,
+                    yaxis_autorange=True,
+                    height=int(total_figure_height),
+                    hovermode="x unified",
+                    margin=dict(l=50, r=50, b=50, t=50, pad=7),
+                )
+        
+        # For additional datatypes being added to an existing subplot figure,
+        # we may want to update the subplot title to include all datatypes
+        if not is_new_figure and subplot_row and hasattr(fig, 'layout') and hasattr(fig.layout, 'annotations'):
+            # Find and update the subplot title to include the new datatype
+            for annotation in fig.layout.annotations:
+                if annotation.text and "Roofline Analysis" in annotation.text:
+                    if "(" in annotation.text and ")" in annotation.text:
+                        existing_text = annotation.text.split("(")[0]
+                        existing_types = annotation.text.split("(")[1].split(")")[0]
+                        new_types = f"{existing_types}, {dtype}"
+                        annotation.text = f"{existing_text}({new_types})"
+                    break
 
         return fig
 
