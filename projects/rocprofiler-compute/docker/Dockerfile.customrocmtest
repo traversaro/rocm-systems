@@ -1,8 +1,10 @@
 # Use a base image
-FROM ubuntu:22.04
+FROM <rocm_build_image>
 
 # Set the working directory
 WORKDIR /app
+
+COPY . .
 
 # Update package list and install prerequisites
 RUN apt-get update && apt-get install -y \
@@ -20,7 +22,6 @@ RUN locale-gen en_US.UTF-8
 RUN apt-get install -y python3.10 python3.10-venv python3.10-dev python3-pip libsqlite3-dev
 
 # Update pip
-RUN apt remove -y python3-wheel
 RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
 RUN python3.10 get-pip.py
 RUN python3.10 -m pip install --upgrade pip setuptools wheel
@@ -28,23 +29,23 @@ RUN python3.10 -m pip install --upgrade pip setuptools wheel
 # Set Python 3.10 as the default python3
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 
-# Remove blinker python package
+# Remove blinker python package to prevent problems with installing requirements
 RUN apt-get remove -y python3-blinker
 
+# Rocm is obtained from base image
 # Install rocm
 # Define custom version
-ARG DEB_FILE=""
-ARG AMDGPU_BUILD=""
-ARG ROCM_BUILD=""
-RUN curl -O "https://artifactory-cdn.amd.com/artifactory/list/amdgpu-deb/${DEB_FILE}"
-RUN apt-get install -y "./${DEB_FILE}"
-RUN amdgpu-repo --amdgpu-build="${AMDGPU_BUILD}" --rocm-build="compute-rocm-dkms-no-npi-hipclang/${ROCM_BUILD}"
-RUN DEBIAN_FRONTEND=noninteractive TZ="America/Toronto" amdgpu-install --yes --usecase=rocm
+# ARG DEB_FILE=""
+# ARG AMDGPU_BUILD=""
+# ARG ROCM_BUILD=""
+# RUN curl -O "https://artifactory-cdn.amd.com/artifactory/list/amdgpu-deb/${DEB_FILE}"
+# RUN apt-get install -y "./${DEB_FILE}"
+# RUN amdgpu-repo --amdgpu-build="${AMDGPU_BUILD}" --rocm-build="compute-rocm-dkms-no-npi-hipclang/${ROCM_BUILD}"
+# RUN DEBIAN_FRONTEND=noninteractive TZ="America/Toronto" amdgpu-install --yes --usecase=rocm
 
 # Install any dependencies specified in requirements.txt
 # Run interactive bash shell
-CMD ["/bin/bash", "-c", "\
-    cd /app/projects/rocprofiler-compute \
-    && python3.10 -m pip install -r requirements.txt -r requirements-test.txt \
-    && exec /bin/bash \
-"]
+WORKDIR /app/projects/rocprofiler-compute
+RUN python3 -m pip install -r requirements.txt -r requirements-test.txt
+
+CMD ["/bin/bash"]

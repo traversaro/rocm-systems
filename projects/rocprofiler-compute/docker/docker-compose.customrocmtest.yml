@@ -1,8 +1,9 @@
 services:
-  customrocmtest: # service name
+  rocprofiler-compute-<username>: # service name
     build:
       context: ../../../
       dockerfile: projects/rocprofiler-compute/docker/Dockerfile.customrocmtest
+    image: rocprofiler-compute-<username>
     devices:
       - /dev/kfd
       - /dev/dri
