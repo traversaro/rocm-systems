@@ -398,6 +398,7 @@ void GraphExec::GetKernelArgSizeForGraph(std::unordered_map<int, size_t>& kernAr
     }
   }
 }
+#ifdef __linux__
 #include <hsa/hsa.h>
 // ================================================================================================
 // NOP Packet Management
@@ -416,6 +417,12 @@ uint8_t* GraphExec::PacketBatch::getNOPPacket() {
   }
   return nopPacket;
 }
+#else
+// Windows/PAL - AQL packet batching not supported
+uint8_t* GraphExec::PacketBatch::getNOPPacket() {
+  return nullptr;  // Not used on Windows
+}
+#endif
 // ================================================================================================
 void GraphExec::PacketBatch::setEnabled(GraphNode* node, bool enabled) {
   auto it = nodeToRangeIndex.find(node);
