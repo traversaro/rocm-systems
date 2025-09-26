@@ -107,6 +107,7 @@ void doMemCopy(size_t numElements, int offset, T* A, T* Bh, T* Bd, bool internal
  * ------------------------
  *    - HIP_VERSION >= 5.2
  */
+#if HT_AMD
 TEMPLATE_TEST_CASE("Unit_hipHostRegister_ReferenceFromKernelandhipMemset", "", int, float, double) {
   size_t sizeBytes{LEN * sizeof(TestType)};
   TestType *A, **Ad;
@@ -158,7 +159,7 @@ TEMPLATE_TEST_CASE("Unit_hipHostRegister_ReferenceFromKernelandhipMemset", "", i
   free(A);
   delete[] Ad;
 }
-
+#endif
 /**
  * Test Description
  * ------------------------
@@ -906,6 +907,7 @@ template <typename T> __global__ void fill_kernel(T* dataPtr, T value) {
  * ------------------------
  *    - HIP_VERSION >= 5.2
  */
+#if HT_AMD
 TEMPLATE_TEST_CASE("Unit_hipHostRegister_Flags", "", int, float, double) {
   size_t sizeBytes = 1 * sizeof(TestType);
   TestType* hostPtr = reinterpret_cast<TestType*>(malloc(sizeBytes));
@@ -942,7 +944,7 @@ TEMPLATE_TEST_CASE("Unit_hipHostRegister_Flags", "", int, float, double) {
   }
   free(hostPtr);
 }
-
+#endif
 /**
  * Test Description
  * ------------------------
