@@ -37,7 +37,7 @@ To quickly get the environment (bash shell) for building and testing, run the fo
 * `cd docker`
 * If the docker image is not available on the machine, then build the image, otherwise skip this step: `docker compose -f docker-compose.customrocmtest.yml build`
 * Launch the container, and check the name of the container: `docker compose -f docker-compose.customrocmtest.yml up --force-recreate -d `
-* Run bash shell on the launched container: `docker exec -i <container_name> bash`
+* Run bash shell on the launched container: `docker exec -it <container_name> bash`
 * If testing is done, kill the container: `docker container kill <container_name>`
 
 Inside the docker container, clean, build, then install the project with tests enabled:
