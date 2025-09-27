@@ -888,22 +888,22 @@ class GraphExec : public amd::ReferenceCountedObject, public Graph {
 
   //! Structure for batch dispatch optimization with NOP packet support
   struct PacketBatch {
-    // Direct dispatch lists - always ready for launch
+    // Main dispatch vectors - always ready for batch dispatch
     std::vector<uint8_t*> dispatchPackets;
     std::vector<std::string> dispatchKernelNames;
-    // Original packets for re-enabling (NOP packets for disabled nodes)
-    std::vector<uint8_t*> originalPackets;
-    std::vector<std::string> originalKernelNames;
     // Node tracking
     struct NodeRange {
       size_t startIndex;    // Start index in dispatchPackets
       size_t packetCount;   // Number of packets for this node
-      bool enabled;         // Overall node state
+      bool enabled;         // Overall node state (used for NOP tracking)
     };
     std::vector<NodeRange> nodeRanges;
     std::unordered_map<GraphNode*, size_t> nodeToRangeIndex;  // O(1) lookup
-    size_t capturedNodeCount;  // Number of consecutive captured nodes in this batch
-    PacketBatch() : capturedNodeCount(0) {}
+    // ONLY store originals for nodes that have been disabled
+    // This will be empty in 99% of real-world cases (no disable calls)
+    std::unordered_map<GraphNode*, std::vector<uint8_t*>> originalPackets;
+    std::unordered_map<GraphNode*, std::vector<std::string>> originalKernelNames;
+    PacketBatch() {}
     // O(1) enable/disable operations
     void setEnabled(GraphNode* node, bool enabled);
     // Get NOP packet (cached for efficiency)
